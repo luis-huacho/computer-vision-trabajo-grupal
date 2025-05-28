@@ -760,14 +760,15 @@ def main():
     """Función principal para entrenar el modelo."""
     # Configuración
     config = {
-        'batch_size': 8,
-        'learning_rate': 1e-4,
+        'batch_size': 24,          # Mucho más grande (era 8)
+        'learning_rate': 2e-4,     # Ligeramente más alto
         'weight_decay': 1e-5,
         'num_epochs': 100,
-        'image_size': 256,
-        'device': 'cuda' if torch.cuda.is_available() else 'cpu',
-        'num_workers': 4,
-        'pin_memory': True
+        'image_size': 384,         # Resolución más alta (era 256)
+        'device': 'cuda',
+        'num_workers': 8,          # Más workers para tu CPU
+        'pin_memory': True,
+        'mixed_precision': True    # Aprovechar Tensor Cores
     }
     
     # Setup logging
