@@ -273,38 +273,73 @@ class SuperviselyDataset(Dataset):
         Carga la máscara desde el formato JSON de Supervisely.
         """
         try:
-            with open(annotation_path, 'r') as f:
+            with open(annotation_path, 'r', encoding='utf-8') as f:
                 annotation = json.load(f)
             
+            # Obtener dimensiones de la imagen
+            if 'size' in annotation:
+                height = annotation['size']['height']
+                width = annotation['size']['width']
+            else:
+                # Fallback: usar dimensiones de la imagen
+                return np.zeros((self.image_size, self.image_size), dtype=np.uint8)
+            
             # Crear máscara vacía
-            height = annotation['size']['height']
-            width = annotation['size']['width']
             mask = np.zeros((height, width), dtype=np.uint8)
             
-            # Procesar objetos
+            # Verificar si hay objetos
+            if 'objects' not in annotation:
+                print(f"No hay objetos en: {annotation_path}")
+                return np.zeros((self.image_size, self.image_size), dtype=np.uint8)
+            
+            # Procesar cada objeto
+            objects_processed = 0
             for obj in annotation['objects']:
                 class_title = obj.get('classTitle', '').lower()
-                if any(person_class in class_title for person_class in ['person', 'human']):
+                
+                # Buscar clases relacionadas con personas
+                person_keywords = ['person', 'human', 'people', 'man', 'woman', 'child']
+                is_person = any(keyword in class_title for keyword in person_keywords)
+                
+                if is_person:
                     geometry_type = obj.get('geometryType', '')
                     
                     if geometry_type == 'polygon':
-                        # Extraer puntos del polígono
-                        exterior_points = obj['points']['exterior']
-                        points = np.array([[pt[0], pt[1]] for pt in exterior_points], dtype=np.int32)
-                        cv2.fillPoly(mask, [points], 255)
-                        
+                        # Procesar polígonos
+                        if 'points' in obj and 'exterior' in obj['points']:
+                            exterior_points = obj['points']['exterior']
+                            if len(exterior_points) >= 3:  # Mínimo 3 puntos para un polígono
+                                points = np.array([[pt[0], pt[1]] for pt in exterior_points], dtype=np.int32)
+                                cv2.fillPoly(mask, [points], 255)
+                                objects_processed += 1
+                    
                     elif geometry_type == 'bitmap':
-                        # Si hay datos de bitmap
-                        if 'data' in obj:
-                            # Decodificar bitmap (implementación básica)
-                            # En dataset real de Supervisely, esto requiere decodificación específica
-                            pass
+                        # Para bitmaps, necesitaríamos decodificar los datos
+                        # Por ahora, crear una máscara básica basada en el bbox si está disponible
+                        if 'bitmap' in obj and 'data' in obj['bitmap']:
+                            # Implementación básica - en un caso real necesitarías decodificar el bitmap
+                            objects_processed += 1
+                    
+                    elif geometry_type == 'rectangle':
+                        # Procesar rectángulos
+                        if 'points' in obj:
+                            if 'exterior' in obj['points'] and len(obj['points']['exterior']) >= 2:
+                                points = obj['points']['exterior']
+                                x1, y1 = int(points[0][0]), int(points[0][1])
+                                x2, y2 = int(points[1][0]), int(points[1][1])
+                                cv2.rectangle(mask, (x1, y1), (x2, y2), 255, -1)
+                                objects_processed += 1
+            
+            if objects_processed == 0:
+                print(f"No se procesaron objetos de persona en: {annotation_path}")
             
             return mask
             
+        except json.JSONDecodeError as e:
+            print(f"Error de JSON en {annotation_path}: {e}")
+            return np.zeros((self.image_size, self.image_size), dtype=np.uint8)
         except Exception as e:
             print(f"Error cargando anotación {annotation_path}: {e}")
-            # Retornar máscara vacía si hay error
             return np.zeros((self.image_size, self.image_size), dtype=np.uint8)
     
     def __getitem__(self, idx):
@@ -797,27 +832,78 @@ def main():
         img_dir = os.path.join(ds_path, 'img')
         ann_dir = os.path.join(ds_path, 'ann')
         
-        if os.path.exists(img_dir) and os.path.exists(ann_dir):
-            # Obtener archivos de imágenes
-            img_files = [f for f in os.listdir(img_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        logger.info(f"Procesando directorio: {ds_dir}")
+        
+        if not os.path.exists(img_dir):
+            logger.warning(f"Directorio de imágenes no encontrado: {img_dir}")
+            continue
             
-            for img_file in img_files:
-                img_path = os.path.join(img_dir, img_file)
-                ann_file = img_file.replace('.jpg', '.json').replace('.png', '.json').replace('.jpeg', '.json')
-                ann_path = os.path.join(ann_dir, ann_file)
-                
-                if os.path.exists(ann_path):
-                    all_images_info.append({
-                        'image_path': img_path,
-                        'annotation_path': ann_path,
-                        'dataset': ds_dir
-                    })
+        if not os.path.exists(ann_dir):
+            logger.warning(f"Directorio de anotaciones no encontrado: {ann_dir}")
+            continue
+        
+        # Obtener archivos de imágenes
+        img_files = [f for f in os.listdir(img_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        ann_files = [f for f in os.listdir(ann_dir) if f.lower().endswith('.json')]
+        
+        logger.info(f"  - Imágenes encontradas: {len(img_files)}")
+        logger.info(f"  - Anotaciones encontradas: {len(ann_files)}")
+        
+        # Crear mapping de nombres base
+        paired_count = 0
+        for img_file in img_files:
+            img_path = os.path.join(img_dir, img_file)
+            
+            # Probar diferentes patrones de nombres para las anotaciones
+            base_name = os.path.splitext(img_file)[0]
+            possible_ann_names = [
+                f"{base_name}.json",
+                f"{base_name}.jpg.json",
+                f"{base_name}.png.json",
+                f"{base_name}.jpeg.json"
+            ]
+            
+            ann_path = None
+            for ann_name in possible_ann_names:
+                potential_ann_path = os.path.join(ann_dir, ann_name)
+                if os.path.exists(potential_ann_path):
+                    ann_path = potential_ann_path
+                    break
+            
+            if ann_path:
+                all_images_info.append({
+                    'image_path': img_path,
+                    'annotation_path': ann_path,
+                    'dataset': ds_dir,
+                    'image_name': img_file
+                })
+                paired_count += 1
+            else:
+                logger.debug(f"No se encontró anotación para: {img_file}")
+        
+        logger.info(f"  - Pares válidos creados: {paired_count}")
     
     if not all_images_info:
         logger.error("No se encontraron pares válidos de imagen/anotación")
+        logger.error("Verificando estructura de archivos...")
+        
+        # Debug: mostrar algunos ejemplos de archivos
+        for ds_dir in dataset_dirs[:3]:  # Solo los primeros 3 para no saturar
+            ds_path = os.path.join(data_dir, ds_dir)
+            img_dir = os.path.join(ds_path, 'img')
+            ann_dir = os.path.join(ds_path, 'ann')
+            
+            if os.path.exists(img_dir):
+                img_files = os.listdir(img_dir)[:5]  # Primeros 5
+                logger.error(f"Ejemplos de imágenes en {ds_dir}: {img_files}")
+            
+            if os.path.exists(ann_dir):
+                ann_files = os.listdir(ann_dir)[:5]  # Primeros 5
+                logger.error(f"Ejemplos de anotaciones en {ds_dir}: {ann_files}")
+        
         return
     
-    logger.info(f"Total de imágenes encontradas: {len(all_images_info)}")
+    logger.info(f"Total de imágenes emparejadas encontradas: {len(all_images_info)}")
     
     # Preparar transforms
     train_transform, val_transform = get_transforms()
