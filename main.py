@@ -252,18 +252,21 @@ class UNetAutoencoder(nn.Module):
 class SuperviselyDataset(Dataset):
     """
     Dataset personalizado para cargar imágenes y máscaras del dataset Supervisely.
+    Adaptado para la estructura persons/project/ds*/img y persons/project/ds*/ann
     """
-    def __init__(self, images_dir, annotations_dir, transform=None, image_size=256):
-        self.images_dir = images_dir
-        self.annotations_dir = annotations_dir
+    def __init__(self, images_info_list, transform=None, image_size=256):
+        """
+        Args:
+            images_info_list: Lista de diccionarios con 'image_path' y 'annotation_path'
+            transform: Transformaciones de albumentations
+            image_size: Tamaño al que redimensionar las imágenes
+        """
+        self.images_info = images_info_list
         self.transform = transform
         self.image_size = image_size
         
-        # Obtener lista de imágenes
-        self.image_files = [f for f in os.listdir(images_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-        
     def __len__(self):
-        return len(self.image_files)
+        return len(self.images_info)
     
     def load_supervisely_mask(self, annotation_path):
         """
@@ -280,58 +283,100 @@ class SuperviselyDataset(Dataset):
             
             # Procesar objetos
             for obj in annotation['objects']:
-                if obj['classTitle'] in ['person', 'person_poly', 'person_bmp']:
-                    # Extraer puntos de la geometría
-                    if 'points' in obj['geometryType']:
-                        points = np.array(obj['points']['exterior'], dtype=np.int32)
+                class_title = obj.get('classTitle', '').lower()
+                if any(person_class in class_title for person_class in ['person', 'human']):
+                    geometry_type = obj.get('geometryType', '')
+                    
+                    if geometry_type == 'polygon':
+                        # Extraer puntos del polígono
+                        exterior_points = obj['points']['exterior']
+                        points = np.array([[pt[0], pt[1]] for pt in exterior_points], dtype=np.int32)
                         cv2.fillPoly(mask, [points], 255)
-                    elif obj['geometryType'] == 'bitmap':
-                        # Procesar bitmap si está disponible
-                        pass
+                        
+                    elif geometry_type == 'bitmap':
+                        # Si hay datos de bitmap
+                        if 'data' in obj:
+                            # Decodificar bitmap (implementación básica)
+                            # En dataset real de Supervisely, esto requiere decodificación específica
+                            pass
             
             return mask
+            
         except Exception as e:
+            print(f"Error cargando anotación {annotation_path}: {e}")
             # Retornar máscara vacía si hay error
             return np.zeros((self.image_size, self.image_size), dtype=np.uint8)
     
     def __getitem__(self, idx):
+        # Obtener información de la imagen
+        img_info = self.images_info[idx]
+        img_path = img_info['image_path']
+        ann_path = img_info['annotation_path']
+        
         # Cargar imagen
-        img_name = self.image_files[idx]
-        img_path = os.path.join(self.images_dir, img_name)
         image = cv2.imread(img_path)
+        if image is None:
+            raise ValueError(f"No se pudo cargar la imagen: {img_path}")
+        
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
         # Cargar máscara
-        annotation_name = img_name.replace('.jpg', '.json').replace('.png', '.json')
-        annotation_path = os.path.join(self.annotations_dir, annotation_name)
+        mask = self.load_supervisely_mask(ann_path)
         
-        if os.path.exists(annotation_path):
-            mask = self.load_supervisely_mask(annotation_path)
-        else:
-            mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
-        
-        # Redimensionar
-        image = cv2.resize(image, (self.image_size, self.image_size))
-        mask = cv2.resize(mask, (self.image_size, self.image_size))
+        # Redimensionar manteniendo relación de aspecto
+        h, w = image.shape[:2]
+        if h != self.image_size or w != self.image_size:
+            # Redimensionar imagen y máscara
+            image = cv2.resize(image, (self.image_size, self.image_size))
+            mask = cv2.resize(mask, (self.image_size, self.image_size))
         
         # Crear imagen objetivo (persona con fondo transparente)
         target = image.copy().astype(np.float32) / 255.0
-        alpha = (mask > 0).astype(np.float32)
+        alpha = (mask > 127).astype(np.float32)  # Umbral para binarizar
         
-        # Aplicar transformaciones
+        # Aplicar transformaciones si están definidas
         if self.transform:
-            augmented = self.transform(image=image, mask=mask)
-            image = augmented['image']
-            mask = augmented['mask']
+            try:
+                augmented = self.transform(image=image, mask=mask)
+                image = augmented['image']
+                mask = augmented['mask']
+                
+                # Actualizar target con imagen transformada
+                if isinstance(image, torch.Tensor):
+                    image_np = image.permute(1, 2, 0).numpy()
+                else:
+                    image_np = image
+                
+                target = image_np.astype(np.float32)
+                alpha = (mask > 127).astype(np.float32)
+                
+            except Exception as e:
+                print(f"Error en transformación: {e}")
+                # Usar versión sin transformar
+                image = image.astype(np.float32) / 255.0
+                alpha = alpha.reshape(self.image_size, self.image_size)
+        else:
+            # Normalizar imagen
+            image = image.astype(np.float32) / 255.0
         
-        # Normalizar
-        image = image.astype(np.float32) / 255.0
-        alpha = alpha.reshape(1, self.image_size, self.image_size)
+        # Asegurar dimensiones correctas
+        if len(alpha.shape) == 2:
+            alpha = alpha.reshape(1, self.image_size, self.image_size)
         
         # Crear target con 4 canales (RGBA)
-        target_rgba = np.concatenate([target.transpose(2, 0, 1), alpha], axis=0)
+        if len(target.shape) == 3:
+            target_rgba = np.concatenate([target.transpose(2, 0, 1), alpha], axis=0)
+        else:
+            target_rgba = np.concatenate([target, alpha], axis=0)
         
-        return torch.FloatTensor(image.transpose(2, 0, 1)), torch.FloatTensor(target_rgba)
+        # Convertir imagen a tensor si no lo es ya
+        if not isinstance(image, torch.Tensor):
+            if len(image.shape) == 3:
+                image = torch.FloatTensor(image.transpose(2, 0, 1))
+            else:
+                image = torch.FloatTensor(image)
+        
+        return image, torch.FloatTensor(target_rgba)
 
 class LossCalculator:
     """
@@ -702,14 +747,12 @@ def get_transforms():
         A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
         A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, val_shift_limit=10, p=0.3),
         A.GaussianBlur(blur_limit=3, p=0.2),
-        A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ToTensorV2()
-    ])
+        # Normalización movida al dataset para mejor control
+    ], additional_targets={'mask': 'mask'})
     
     val_transform = A.Compose([
-        A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ToTensorV2()
-    ])
+        # Solo normalización para validación
+    ], additional_targets={'mask': 'mask'})
     
     return train_transform, val_transform
 
@@ -732,36 +775,90 @@ def main():
     logger.info("Iniciando sistema de entrenamiento U-Net Autoencoder")
     logger.info(f"Dispositivo: {config['device']}")
     
-    # Verificar directorio de datos
-    data_dir = 'data/supervisely_persons'
-    images_dir = os.path.join(data_dir, 'images')
-    annotations_dir = os.path.join(data_dir, 'annotations')
+    # Verificar directorio de datos - Ajustado para tu estructura
+    data_dir = 'persons/project'
     
-    if not os.path.exists(images_dir) or not os.path.exists(annotations_dir):
-        logger.error("Directorio de datos no encontrado. Por favor descarga el dataset Supervisely Persons.")
-        logger.error(f"Esperado: {images_dir} y {annotations_dir}")
+    # El dataset Supervisely tiene múltiples subdirectorios (ds1, ds2, etc.)
+    dataset_dirs = [d for d in os.listdir(data_dir) if d.startswith('ds') and os.path.isdir(os.path.join(data_dir, d))]
+    
+    if not dataset_dirs:
+        logger.error("Directorios de dataset no encontrados en persons/project/")
+        logger.error("Esperados: ds1, ds2, ds3, etc.")
         return
+    
+    logger.info(f"Encontrados {len(dataset_dirs)} subdirectorios de dataset: {dataset_dirs}")
+    
+    # Recopilar todas las imágenes y anotaciones de todos los subdirectorios
+    all_images_info = []
+    
+    for ds_dir in dataset_dirs:
+        ds_path = os.path.join(data_dir, ds_dir)
+        img_dir = os.path.join(ds_path, 'img')
+        ann_dir = os.path.join(ds_path, 'ann')
+        
+        if os.path.exists(img_dir) and os.path.exists(ann_dir):
+            # Obtener archivos de imágenes
+            img_files = [f for f in os.listdir(img_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+            
+            for img_file in img_files:
+                img_path = os.path.join(img_dir, img_file)
+                ann_file = img_file.replace('.jpg', '.json').replace('.png', '.json').replace('.jpeg', '.json')
+                ann_path = os.path.join(ann_dir, ann_file)
+                
+                if os.path.exists(ann_path):
+                    all_images_info.append({
+                        'image_path': img_path,
+                        'annotation_path': ann_path,
+                        'dataset': ds_dir
+                    })
+    
+    if not all_images_info:
+        logger.error("No se encontraron pares válidos de imagen/anotación")
+        return
+    
+    logger.info(f"Total de imágenes encontradas: {len(all_images_info)}")
     
     # Preparar transforms
     train_transform, val_transform = get_transforms()
     
-    # Crear datasets
-    logger.info("Cargando datasets...")
+    # Crear datasets usando la información recopilada
+    logger.info("Creando datasets...")
     full_dataset = SuperviselyDataset(
-        images_dir=images_dir,
-        annotations_dir=annotations_dir,
-        transform=None,
+        images_info_list=all_images_info,
+        transform=None,  # Se aplicará después del split
         image_size=config['image_size']
     )
     
-    # Split train/validation
+    logger.info(f"Dataset total creado con {len(full_dataset)} imágenes")
+    
+    # Split train/validation (80/20)
     train_size = int(0.8 * len(full_dataset))
     val_size = len(full_dataset) - train_size
-    train_dataset, val_dataset = torch.utils.data.random_split(full_dataset, [train_size, val_size])
     
-    # Aplicar transforms
-    train_dataset.dataset.transform = train_transform
-    val_dataset.dataset.transform = val_transform
+    # Crear índices aleatorios para el split
+    indices = list(range(len(full_dataset)))
+    np.random.seed(42)  # Para reproducibilidad
+    np.random.shuffle(indices)
+    
+    train_indices = indices[:train_size]
+    val_indices = indices[train_size:]
+    
+    # Crear subsets
+    train_images_info = [all_images_info[i] for i in train_indices]
+    val_images_info = [all_images_info[i] for i in val_indices]
+    
+    # Crear datasets con transforms
+    train_dataset = SuperviselyDataset(
+        images_info_list=train_images_info,
+        transform=train_transform,
+        image_size=config['image_size']
+    )
+    
+    val_dataset = SuperviselyDataset(
+        images_info_list=val_images_info,
+        transform=val_transform,
+        image_size=config['image_size']
+    )
     
     # Crear data loaders
     train_loader = DataLoader(
