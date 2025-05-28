@@ -467,8 +467,9 @@ class LossCalculator:
         
     def dice_loss(self, pred, target, smooth=1e-6):
         """Dice Loss para segmentación."""
-        pred_flat = pred.view(-1)
-        target_flat = target.view(-1)
+        # FIX: Usar .reshape() en lugar de .view() para evitar problemas de memoria no contigua
+        pred_flat = pred.reshape(-1)
+        target_flat = target.reshape(-1)
         
         intersection = (pred_flat * target_flat).sum()
         dice = (2. * intersection + smooth) / (pred_flat.sum() + target_flat.sum() + smooth)
@@ -504,6 +505,12 @@ class LossCalculator:
         target_rgb = target[:, :3]
         target_alpha = target[:, 3:4]
         
+        # Asegurar que los tensores sean contiguos para evitar errores de view/reshape
+        pred_alpha = pred_alpha.contiguous()
+        target_alpha = target_alpha.contiguous()
+        pred_rgb = pred_rgb.contiguous()
+        target_rgb = target_rgb.contiguous()
+        
         # BCE Loss para alpha channel
         bce_loss = self.bce_loss(pred_alpha, target_alpha)
         
@@ -526,6 +533,11 @@ class LossCalculator:
                      self.gamma * perceptual_loss + 
                      self.delta * edge_loss)
         
+        # Verificar que la pérdida sea válida
+        if torch.isnan(total_loss) or torch.isinf(total_loss):
+            # Si hay problemas, usar solo BCE loss como fallback
+            total_loss = bce_loss
+            
         return {
             'total_loss': total_loss,
             'bce_loss': bce_loss,
@@ -548,7 +560,7 @@ class MetricsCalculator:
         union = pred_binary.sum() + target_binary.sum() - intersection
         
         if union == 0:
-            return torch.tensor(1.0)
+            return torch.tensor(1.0, device=pred.device)
         
         return intersection / union
     
@@ -562,7 +574,7 @@ class MetricsCalculator:
         total = pred_binary.sum() + target_binary.sum()
         
         if total == 0:
-            return torch.tensor(1.0)
+            return torch.tensor(1.0, device=pred.device)
         
         return (2.0 * intersection) / total
     
@@ -660,17 +672,34 @@ class Trainer:
                 images = images.to(self.device)
                 targets = targets.to(self.device)
                 
+                # Verificar que no hay NaN en los datos de entrada
+                if torch.isnan(images).any() or torch.isnan(targets).any():
+                    self.logger.warning(f"NaN detectado en batch {batch_idx}, saltando...")
+                    continue
+                
                 # Forward pass
                 self.optimizer.zero_grad()
                 outputs = self.model(images)
+                
+                # Verificar que no hay NaN en las salidas
+                if torch.isnan(outputs).any():
+                    self.logger.warning(f"NaN en outputs del batch {batch_idx}, saltando...")
+                    continue
                 
                 # Calcular pérdidas
                 loss_dict = self.loss_calculator.calculate_loss(outputs, targets)
                 total_loss = loss_dict['total_loss']
                 
+                # Verificar que la pérdida es válida
+                if torch.isnan(total_loss) or torch.isinf(total_loss):
+                    self.logger.warning(f"Pérdida inválida en batch {batch_idx}: {total_loss.item()}, saltando...")
+                    continue
+                
                 # Backward pass
                 total_loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                
+                # Gradient clipping más agresivo
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=0.5)
                 self.optimizer.step()
                 
                 # Calcular métricas
@@ -681,12 +710,14 @@ class Trainer:
                     iou = self.metrics_calculator.calculate_iou(pred_alpha, target_alpha)
                     dice = self.metrics_calculator.calculate_dice(pred_alpha, target_alpha)
                     
-                    epoch_losses.append(total_loss.item())
-                    epoch_ious.append(iou.item())
-                    epoch_dices.append(dice.item())
+                    # Verificar métricas válidas
+                    if not (torch.isnan(iou) or torch.isnan(dice)):
+                        epoch_losses.append(total_loss.item())
+                        epoch_ious.append(iou.item())
+                        epoch_dices.append(dice.item())
                 
                 # Log cada N batches
-                if batch_idx % 10 == 0:
+                if batch_idx % 10 == 0 and len(epoch_losses) > 0:
                     self.logger.info(f'Batch {batch_idx}/{len(self.train_loader)}: '
                                    f'Loss: {total_loss.item():.4f}, IoU: {iou.item():.4f}, Dice: {dice.item():.4f}')
                     
@@ -694,7 +725,11 @@ class Trainer:
                 self.logger.error(f"Error in batch {batch_idx}: {str(e)}")
                 continue
         
-        return np.mean(epoch_losses), np.mean(epoch_ious), np.mean(epoch_dices)
+        # Retornar promedios válidos
+        if len(epoch_losses) > 0:
+            return np.mean(epoch_losses), np.mean(epoch_ious), np.mean(epoch_dices)
+        else:
+            return 0.0, 0.0, 0.0
     
     def validate_epoch(self):
         """Valida una época."""
@@ -709,12 +744,24 @@ class Trainer:
                     images = images.to(self.device)
                     targets = targets.to(self.device)
                     
+                    # Verificar datos válidos
+                    if torch.isnan(images).any() or torch.isnan(targets).any():
+                        continue
+                    
                     # Forward pass
                     outputs = self.model(images)
+                    
+                    # Verificar salidas válidas
+                    if torch.isnan(outputs).any():
+                        continue
                     
                     # Calcular pérdidas
                     loss_dict = self.loss_calculator.calculate_loss(outputs, targets)
                     total_loss = loss_dict['total_loss']
+                    
+                    # Verificar pérdida válida
+                    if torch.isnan(total_loss) or torch.isinf(total_loss):
+                        continue
                     
                     # Calcular métricas
                     pred_alpha = outputs[:, 3:4]
@@ -723,15 +770,21 @@ class Trainer:
                     iou = self.metrics_calculator.calculate_iou(pred_alpha, target_alpha)
                     dice = self.metrics_calculator.calculate_dice(pred_alpha, target_alpha)
                     
-                    epoch_losses.append(total_loss.item())
-                    epoch_ious.append(iou.item())
-                    epoch_dices.append(dice.item())
+                    # Solo agregar si las métricas son válidas
+                    if not (torch.isnan(iou) or torch.isnan(dice)):
+                        epoch_losses.append(total_loss.item())
+                        epoch_ious.append(iou.item())
+                        epoch_dices.append(dice.item())
                     
                 except Exception as e:
                     self.logger.error(f"Error in validation batch {batch_idx}: {str(e)}")
                     continue
         
-        return np.mean(epoch_losses), np.mean(epoch_ious), np.mean(epoch_dices)
+        # Retornar promedios válidos
+        if len(epoch_losses) > 0:
+            return np.mean(epoch_losses), np.mean(epoch_ious), np.mean(epoch_dices)
+        else:
+            return 0.0, 0.0, 0.0
     
     def train(self, num_epochs):
         """Entrenamiento principal."""
@@ -750,42 +803,50 @@ class Trainer:
             # Actualizar scheduler
             self.scheduler.step()
             
-            # Guardar historial
-            self.train_history['loss'].append(train_loss)
-            self.train_history['iou'].append(train_iou)
-            self.train_history['dice'].append(train_dice)
-            
-            self.val_history['loss'].append(val_loss)
-            self.val_history['iou'].append(val_iou)
-            self.val_history['dice'].append(val_dice)
-            
-            # Log resultados
-            self.logger.info(f"Train - Loss: {train_loss:.4f}, IoU: {train_iou:.4f}, Dice: {train_dice:.4f}")
-            self.logger.info(f"Val   - Loss: {val_loss:.4f}, IoU: {val_iou:.4f}, Dice: {val_dice:.4f}")
-            
-            # Guardar checkpoint
-            is_best = val_iou > self.checkpoint_manager.best_iou
-            if is_best:
-                self.checkpoint_manager.best_iou = val_iou
-                self.checkpoint_manager.best_loss = val_loss
+            # Verificar si los valores son válidos antes de guardar
+            if not (np.isnan(train_loss) or np.isnan(val_loss)):
+                # Guardar historial
+                self.train_history['loss'].append(train_loss)
+                self.train_history['iou'].append(train_iou)
+                self.train_history['dice'].append(train_dice)
                 
-            metrics = {
-                'train_loss': train_loss, 'train_iou': train_iou, 'train_dice': train_dice,
-                'val_loss': val_loss, 'val_iou': val_iou, 'val_dice': val_dice
-            }
-            
-            self.checkpoint_manager.save_checkpoint(
-                self.model, self.optimizer, epoch, val_loss, metrics, is_best
-            )
-            
-            if is_best:
-                self.logger.info(f"¡Nuevo mejor modelo! IoU: {val_iou:.4f}")
+                self.val_history['loss'].append(val_loss)
+                self.val_history['iou'].append(val_iou)
+                self.val_history['dice'].append(val_dice)
+                
+                # Log resultados
+                self.logger.info(f"Train - Loss: {train_loss:.4f}, IoU: {train_iou:.4f}, Dice: {train_dice:.4f}")
+                self.logger.info(f"Val   - Loss: {val_loss:.4f}, IoU: {val_iou:.4f}, Dice: {val_dice:.4f}")
+                
+                # Guardar checkpoint
+                is_best = val_iou > self.checkpoint_manager.best_iou
+                if is_best:
+                    self.checkpoint_manager.best_iou = val_iou
+                    self.checkpoint_manager.best_loss = val_loss
+                    
+                metrics = {
+                    'train_loss': train_loss, 'train_iou': train_iou, 'train_dice': train_dice,
+                    'val_loss': val_loss, 'val_iou': val_iou, 'val_dice': val_dice
+                }
+                
+                self.checkpoint_manager.save_checkpoint(
+                    self.model, self.optimizer, epoch, val_loss, metrics, is_best
+                )
+                
+                if is_best:
+                    self.logger.info(f"¡Nuevo mejor modelo! IoU: {val_iou:.4f}")
+            else:
+                self.logger.warning(f"Época {epoch+1} saltada debido a valores NaN")
         
         self.logger.info("Entrenamiento completado!")
         self.save_training_plots()
     
     def save_training_plots(self):
         """Guarda gráficas del entrenamiento."""
+        if len(self.train_history['loss']) == 0:
+            self.logger.warning("No hay datos de entrenamiento para graficar")
+            return
+            
         os.makedirs('plots', exist_ok=True)
         
         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
@@ -840,17 +901,17 @@ def get_transforms():
 
 def main():
     """Función principal para entrenar el modelo."""
-    # Configuración ajustada para evitar problemas de memoria
+    # Configuración ajustada para evitar problemas de memoria y NaN
     config = {
-        'batch_size': 8,           # Reducido para evitar problemas de memoria
-        'learning_rate': 1e-4,     # Ligeramente reducido
-        'weight_decay': 1e-5,
+        'batch_size': 4,           # Reducido aún más para estabilidad
+        'learning_rate': 5e-5,     # Learning rate más conservador
+        'weight_decay': 1e-6,      # Weight decay más pequeño
         'num_epochs': 100,
-        'image_size': 384,         # Mantener resolución alta
+        'image_size': 384,
         'device': 'cuda' if torch.cuda.is_available() else 'cpu',
-        'num_workers': 4,          # Reducido para estabilidad
+        'num_workers': 2,          # Reducido para estabilidad
         'pin_memory': True,
-        'mixed_precision': False   # Deshabilitado por simplicidad
+        'mixed_precision': False
     }
     
     # Setup logging
@@ -979,7 +1040,7 @@ def main():
         shuffle=True,
         num_workers=config['num_workers'],
         pin_memory=config['pin_memory'],
-        drop_last=True  # Importante para evitar problemas con batch sizes inconsistentes
+        drop_last=True
     )
     
     val_loader = DataLoader(
