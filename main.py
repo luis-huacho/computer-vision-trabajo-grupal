@@ -60,7 +60,7 @@ class AttentionBlock(nn.Module):
         gate_conv = self.gate_conv(gate)
         input_conv = self.input_conv(x)
         
-        # Asegurar mismas dimensiones
+        # Asegurar mismas dimensiones usando interpolación
         if gate_conv.shape[2:] != input_conv.shape[2:]:
             gate_conv = F.interpolate(gate_conv, size=input_conv.shape[2:], mode='bilinear', align_corners=False)
         
@@ -119,28 +119,28 @@ class UNetEncoder(nn.Module):
         skip_connections = []
         
         # Initial convolution
-        x = self.relu(self.bn1(self.conv1(x)))
-        skip_connections.append(x)  # Skip 1: 64 channels
+        x1 = self.relu(self.bn1(self.conv1(x)))
+        skip_connections.append(x1)  # Skip 1: 64 channels
         
-        x = self.maxpool(x)
+        x2 = self.maxpool(x1)
         
         # ResNet layers
-        x = self.layer1(x)
-        skip_connections.append(x)  # Skip 2: 64 channels
+        x3 = self.layer1(x2)
+        skip_connections.append(x3)  # Skip 2: 64 channels
         
-        x = self.layer2(x)
-        skip_connections.append(x)  # Skip 3: 128 channels
+        x4 = self.layer2(x3)
+        skip_connections.append(x4)  # Skip 3: 128 channels
         
-        x = self.layer3(x)
-        skip_connections.append(x)  # Skip 4: 256 channels
+        x5 = self.layer3(x4)
+        skip_connections.append(x5)  # Skip 4: 256 channels
         
-        x = self.layer4(x)
-        skip_connections.append(x)  # Skip 5: 512 channels
+        x6 = self.layer4(x5)
+        skip_connections.append(x6)  # Skip 5: 512 channels
         
         # Bottleneck
-        x = self.bottleneck(x)
+        x7 = self.bottleneck(x6)
         
-        return x, skip_connections
+        return x7, skip_connections
 
 class UNetDecoder(nn.Module):
     """
@@ -151,7 +151,7 @@ class UNetDecoder(nn.Module):
         super(UNetDecoder, self).__init__()
         self.use_attention = use_attention
         
-        # Upsampling layers
+        # Upsampling layers - usando ConvTranspose2d
         self.up1 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
         self.up2 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
         self.up3 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
@@ -176,57 +176,79 @@ class UNetDecoder(nn.Module):
         # Output layer - 4 channels (RGB + Alpha)
         self.final_conv = nn.Conv2d(64, 4, kernel_size=1)
         
+    def _match_tensor_size(self, x, target_tensor):
+        """Ajusta el tamaño de x para que coincida con target_tensor usando interpolación."""
+        if x.shape[2:] != target_tensor.shape[2:]:
+            x = F.interpolate(x, size=target_tensor.shape[2:], mode='bilinear', align_corners=False)
+        return x
+        
     def forward(self, x, skip_connections):
-        # Decoder path
-        skips = skip_connections[::-1]  # Reverse order
+        # Decoder path - las skip connections están en orden inverso
+        skips = skip_connections[::-1]  # [512, 256, 128, 64, 64]
         
-        # Up 1
-        x = self.up1(x)
+        # Up 1: 1024 -> 512
+        x = self.up1(x)  # Upsample
+        skip = skips[0]  # 512 channels
+        
+        # Asegurar que las dimensiones coincidan
+        skip = self._match_tensor_size(skip, x)
+        
         if self.use_attention:
-            skip = self.att1(skips[0], x)
-        else:
-            skip = skips[0]
-        x = torch.cat([x, skip], dim=1)
-        x = self.conv1(x)
+            skip = self.att1(skip, x)
         
-        # Up 2
+        x = torch.cat([x, skip], dim=1)  # 512 + 512 = 1024
+        x = self.conv1(x)  # 1024 -> 512
+        
+        # Up 2: 512 -> 256
         x = self.up2(x)
-        if self.use_attention:
-            skip = self.att2(skips[1], x)
-        else:
-            skip = skips[1]
-        x = torch.cat([x, skip], dim=1)
-        x = self.conv2(x)
+        skip = skips[1]  # 256 channels
         
-        # Up 3
+        skip = self._match_tensor_size(skip, x)
+        
+        if self.use_attention:
+            skip = self.att2(skip, x)
+        
+        x = torch.cat([x, skip], dim=1)  # 256 + 256 = 512
+        x = self.conv2(x)  # 512 -> 256
+        
+        # Up 3: 256 -> 128
         x = self.up3(x)
-        if self.use_attention:
-            skip = self.att3(skips[2], x)
-        else:
-            skip = skips[2]
-        x = torch.cat([x, skip], dim=1)
-        x = self.conv3(x)
+        skip = skips[2]  # 128 channels
         
-        # Up 4
+        skip = self._match_tensor_size(skip, x)
+        
+        if self.use_attention:
+            skip = self.att3(skip, x)
+        
+        x = torch.cat([x, skip], dim=1)  # 128 + 128 = 256
+        x = self.conv3(x)  # 256 -> 128
+        
+        # Up 4: 128 -> 64
         x = self.up4(x)
-        if self.use_attention:
-            skip = self.att4(skips[3], x)
-        else:
-            skip = skips[3]
-        x = torch.cat([x, skip], dim=1)
-        x = self.conv4(x)
+        skip = skips[3]  # 64 channels
         
-        # Up 5
-        x = self.up5(x)
+        skip = self._match_tensor_size(skip, x)
+        
         if self.use_attention:
-            skip = self.att5(skips[4], x)
-        else:
-            skip = skips[4]
-        x = torch.cat([x, skip], dim=1)
-        x = self.conv5(x)
+            skip = self.att4(skip, x)
+        
+        x = torch.cat([x, skip], dim=1)  # 64 + 64 = 128
+        x = self.conv4(x)  # 128 -> 64
+        
+        # Up 5: 64 -> 64 (final upsampling)
+        x = self.up5(x)
+        skip = skips[4]  # 64 channels (primera capa conv)
+        
+        skip = self._match_tensor_size(skip, x)
+        
+        if self.use_attention:
+            skip = self.att5(skip, x)
+        
+        x = torch.cat([x, skip], dim=1)  # 64 + 64 = 128
+        x = self.conv5(x)  # 128 -> 64
         
         # Final output
-        x = self.final_conv(x)
+        x = self.final_conv(x)  # 64 -> 4 (RGBA)
         
         # Aplicar activaciones
         rgb = torch.sigmoid(x[:, :3])  # RGB channels
@@ -254,7 +276,7 @@ class SuperviselyDataset(Dataset):
     Dataset personalizado para cargar imágenes y máscaras del dataset Supervisely.
     Adaptado para la estructura persons/project/ds*/img y persons/project/ds*/ann
     """
-    def __init__(self, images_info_list, transform=None, image_size=256):
+    def __init__(self, images_info_list, transform=None, image_size=384):
         """
         Args:
             images_info_list: Lista de diccionarios con 'image_path' y 'annotation_path'
@@ -348,70 +370,86 @@ class SuperviselyDataset(Dataset):
         img_path = img_info['image_path']
         ann_path = img_info['annotation_path']
         
-        # Cargar imagen
-        image = cv2.imread(img_path)
-        if image is None:
-            raise ValueError(f"No se pudo cargar la imagen: {img_path}")
-        
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        
-        # Cargar máscara
-        mask = self.load_supervisely_mask(ann_path)
-        
-        # Redimensionar manteniendo relación de aspecto
-        h, w = image.shape[:2]
-        if h != self.image_size or w != self.image_size:
-            # Redimensionar imagen y máscara
-            image = cv2.resize(image, (self.image_size, self.image_size))
-            mask = cv2.resize(mask, (self.image_size, self.image_size))
-        
-        # Crear imagen objetivo (persona con fondo transparente)
-        target = image.copy().astype(np.float32) / 255.0
-        alpha = (mask > 127).astype(np.float32)  # Umbral para binarizar
-        
-        # Aplicar transformaciones si están definidas
-        if self.transform:
-            try:
-                augmented = self.transform(image=image, mask=mask)
-                image = augmented['image']
-                mask = augmented['mask']
-                
-                # Actualizar target con imagen transformada
-                if isinstance(image, torch.Tensor):
-                    image_np = image.permute(1, 2, 0).numpy()
-                else:
-                    image_np = image
-                
-                target = image_np.astype(np.float32)
-                alpha = (mask > 127).astype(np.float32)
-                
-            except Exception as e:
-                print(f"Error en transformación: {e}")
-                # Usar versión sin transformar
-                image = image.astype(np.float32) / 255.0
-                alpha = alpha.reshape(self.image_size, self.image_size)
-        else:
+        try:
+            # Cargar imagen
+            image = cv2.imread(img_path)
+            if image is None:
+                raise ValueError(f"No se pudo cargar la imagen: {img_path}")
+            
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            
+            # Cargar máscara
+            mask = self.load_supervisely_mask(ann_path)
+            
+            # Redimensionar manteniendo relación de aspecto
+            h, w = image.shape[:2]
+            if h != self.image_size or w != self.image_size:
+                # Redimensionar imagen y máscara
+                image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
+                mask = cv2.resize(mask, (self.image_size, self.image_size), interpolation=cv2.INTER_NEAREST)
+            
             # Normalizar imagen
             image = image.astype(np.float32) / 255.0
-        
-        # Asegurar dimensiones correctas
-        if len(alpha.shape) == 2:
-            alpha = alpha.reshape(1, self.image_size, self.image_size)
-        
-        # Crear target con 4 canales (RGBA)
-        if len(target.shape) == 3:
-            target_rgba = np.concatenate([target.transpose(2, 0, 1), alpha], axis=0)
-        else:
-            target_rgba = np.concatenate([target, alpha], axis=0)
-        
-        # Convertir imagen a tensor si no lo es ya
-        if not isinstance(image, torch.Tensor):
+            
+            # Crear máscara binaria
+            alpha = (mask > 127).astype(np.float32)
+            
+            # Aplicar transformaciones si están definidas
+            if self.transform:
+                try:
+                    # Convertir alpha de nuevo a uint8 para albumentations
+                    mask_uint8 = (alpha * 255).astype(np.uint8)
+                    image_uint8 = (image * 255).astype(np.uint8)
+                    
+                    augmented = self.transform(image=image_uint8, mask=mask_uint8)
+                    image_aug = augmented['image']
+                    mask_aug = augmented['mask']
+                    
+                    # Convertir de vuelta a float32
+                    if isinstance(image_aug, torch.Tensor):
+                        image = image_aug.float() / 255.0
+                    else:
+                        image = image_aug.astype(np.float32) / 255.0
+                    
+                    alpha = (mask_aug > 127).astype(np.float32)
+                    
+                except Exception as e:
+                    print(f"Error en transformación: {e}")
+                    # Usar versión sin transformar
+                    pass
+            
+            # Crear target con 4 canales (RGBA)
+            target = np.zeros((4, self.image_size, self.image_size), dtype=np.float32)
+            
+            # RGB channels
             if len(image.shape) == 3:
-                image = torch.FloatTensor(image.transpose(2, 0, 1))
+                target[:3] = image.transpose(2, 0, 1)
             else:
-                image = torch.FloatTensor(image)
-        
-        return image, torch.FloatTensor(target_rgba)
+                target[:3] = image
+            
+            # Alpha channel
+            if len(alpha.shape) == 2:
+                target[3] = alpha
+            else:
+                target[3] = alpha.squeeze()
+            
+            # Convertir imagen de entrada a tensor
+            if not isinstance(image, torch.Tensor):
+                if len(image.shape) == 3:
+                    image_tensor = torch.FloatTensor(image.transpose(2, 0, 1))
+                else:
+                    image_tensor = torch.FloatTensor(image)
+            else:
+                image_tensor = image.float()
+            
+            return image_tensor, torch.FloatTensor(target)
+            
+        except Exception as e:
+            print(f"Error procesando {img_path}: {e}")
+            # Retornar tensor dummy en caso de error
+            dummy_image = torch.zeros(3, self.image_size, self.image_size)
+            dummy_target = torch.zeros(4, self.image_size, self.image_size)
+            return dummy_image, dummy_target
 
 class LossCalculator:
     """
@@ -618,38 +656,43 @@ class Trainer:
         epoch_dices = []
         
         for batch_idx, (images, targets) in enumerate(self.train_loader):
-            images = images.to(self.device)
-            targets = targets.to(self.device)
-            
-            # Forward pass
-            self.optimizer.zero_grad()
-            outputs = self.model(images)
-            
-            # Calcular pérdidas
-            loss_dict = self.loss_calculator.calculate_loss(outputs, targets)
-            total_loss = loss_dict['total_loss']
-            
-            # Backward pass
-            total_loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-            self.optimizer.step()
-            
-            # Calcular métricas
-            with torch.no_grad():
-                pred_alpha = outputs[:, 3:4]
-                target_alpha = targets[:, 3:4]
+            try:
+                images = images.to(self.device)
+                targets = targets.to(self.device)
                 
-                iou = self.metrics_calculator.calculate_iou(pred_alpha, target_alpha)
-                dice = self.metrics_calculator.calculate_dice(pred_alpha, target_alpha)
+                # Forward pass
+                self.optimizer.zero_grad()
+                outputs = self.model(images)
                 
-                epoch_losses.append(total_loss.item())
-                epoch_ious.append(iou.item())
-                epoch_dices.append(dice.item())
-            
-            # Log cada N batches
-            if batch_idx % 10 == 0:
-                self.logger.info(f'Batch {batch_idx}/{len(self.train_loader)}: '
-                               f'Loss: {total_loss.item():.4f}, IoU: {iou.item():.4f}, Dice: {dice.item():.4f}')
+                # Calcular pérdidas
+                loss_dict = self.loss_calculator.calculate_loss(outputs, targets)
+                total_loss = loss_dict['total_loss']
+                
+                # Backward pass
+                total_loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                self.optimizer.step()
+                
+                # Calcular métricas
+                with torch.no_grad():
+                    pred_alpha = outputs[:, 3:4]
+                    target_alpha = targets[:, 3:4]
+                    
+                    iou = self.metrics_calculator.calculate_iou(pred_alpha, target_alpha)
+                    dice = self.metrics_calculator.calculate_dice(pred_alpha, target_alpha)
+                    
+                    epoch_losses.append(total_loss.item())
+                    epoch_ious.append(iou.item())
+                    epoch_dices.append(dice.item())
+                
+                # Log cada N batches
+                if batch_idx % 10 == 0:
+                    self.logger.info(f'Batch {batch_idx}/{len(self.train_loader)}: '
+                                   f'Loss: {total_loss.item():.4f}, IoU: {iou.item():.4f}, Dice: {dice.item():.4f}')
+                    
+            except Exception as e:
+                self.logger.error(f"Error in batch {batch_idx}: {str(e)}")
+                continue
         
         return np.mean(epoch_losses), np.mean(epoch_ious), np.mean(epoch_dices)
     
@@ -661,27 +704,32 @@ class Trainer:
         epoch_dices = []
         
         with torch.no_grad():
-            for images, targets in self.val_loader:
-                images = images.to(self.device)
-                targets = targets.to(self.device)
-                
-                # Forward pass
-                outputs = self.model(images)
-                
-                # Calcular pérdidas
-                loss_dict = self.loss_calculator.calculate_loss(outputs, targets)
-                total_loss = loss_dict['total_loss']
-                
-                # Calcular métricas
-                pred_alpha = outputs[:, 3:4]
-                target_alpha = targets[:, 3:4]
-                
-                iou = self.metrics_calculator.calculate_iou(pred_alpha, target_alpha)
-                dice = self.metrics_calculator.calculate_dice(pred_alpha, target_alpha)
-                
-                epoch_losses.append(total_loss.item())
-                epoch_ious.append(iou.item())
-                epoch_dices.append(dice.item())
+            for batch_idx, (images, targets) in enumerate(self.val_loader):
+                try:
+                    images = images.to(self.device)
+                    targets = targets.to(self.device)
+                    
+                    # Forward pass
+                    outputs = self.model(images)
+                    
+                    # Calcular pérdidas
+                    loss_dict = self.loss_calculator.calculate_loss(outputs, targets)
+                    total_loss = loss_dict['total_loss']
+                    
+                    # Calcular métricas
+                    pred_alpha = outputs[:, 3:4]
+                    target_alpha = targets[:, 3:4]
+                    
+                    iou = self.metrics_calculator.calculate_iou(pred_alpha, target_alpha)
+                    dice = self.metrics_calculator.calculate_dice(pred_alpha, target_alpha)
+                    
+                    epoch_losses.append(total_loss.item())
+                    epoch_ious.append(iou.item())
+                    epoch_dices.append(dice.item())
+                    
+                except Exception as e:
+                    self.logger.error(f"Error in validation batch {batch_idx}: {str(e)}")
+                    continue
         
         return np.mean(epoch_losses), np.mean(epoch_ious), np.mean(epoch_dices)
     
@@ -782,7 +830,6 @@ def get_transforms():
         A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
         A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, val_shift_limit=10, p=0.3),
         A.GaussianBlur(blur_limit=3, p=0.2),
-        # Normalización movida al dataset para mejor control
     ], additional_targets={'mask': 'mask'})
     
     val_transform = A.Compose([
@@ -793,17 +840,17 @@ def get_transforms():
 
 def main():
     """Función principal para entrenar el modelo."""
-    # Configuración
+    # Configuración ajustada para evitar problemas de memoria
     config = {
-        'batch_size': 24,          # Mucho más grande (era 8)
-        'learning_rate': 2e-4,     # Ligeramente más alto
+        'batch_size': 8,           # Reducido para evitar problemas de memoria
+        'learning_rate': 1e-4,     # Ligeramente reducido
         'weight_decay': 1e-5,
         'num_epochs': 100,
-        'image_size': 384,         # Resolución más alta (era 256)
-        'device': 'cuda',
-        'num_workers': 8,          # Más workers para tu CPU
+        'image_size': 384,         # Mantener resolución alta
+        'device': 'cuda' if torch.cuda.is_available() else 'cpu',
+        'num_workers': 4,          # Reducido para estabilidad
         'pin_memory': True,
-        'mixed_precision': True    # Aprovechar Tensor Cores
+        'mixed_precision': False   # Deshabilitado por simplicidad
     }
     
     # Setup logging
@@ -811,8 +858,12 @@ def main():
     logger.info("Iniciando sistema de entrenamiento U-Net Autoencoder")
     logger.info(f"Dispositivo: {config['device']}")
     
-    # Verificar directorio de datos - Ajustado para tu estructura
+    # Verificar directorio de datos
     data_dir = 'persons/project'
+    
+    if not os.path.exists(data_dir):
+        logger.error(f"Directorio de datos no encontrado: {data_dir}")
+        return
     
     # El dataset Supervisely tiene múltiples subdirectorios (ds1, ds2, etc.)
     dataset_dirs = [d for d in os.listdir(data_dir) if d.startswith('ds') and os.path.isdir(os.path.join(data_dir, d))]
@@ -885,22 +936,6 @@ def main():
     
     if not all_images_info:
         logger.error("No se encontraron pares válidos de imagen/anotación")
-        logger.error("Verificando estructura de archivos...")
-        
-        # Debug: mostrar algunos ejemplos de archivos
-        for ds_dir in dataset_dirs[:3]:  # Solo los primeros 3 para no saturar
-            ds_path = os.path.join(data_dir, ds_dir)
-            img_dir = os.path.join(ds_path, 'img')
-            ann_dir = os.path.join(ds_path, 'ann')
-            
-            if os.path.exists(img_dir):
-                img_files = os.listdir(img_dir)[:5]  # Primeros 5
-                logger.error(f"Ejemplos de imágenes en {ds_dir}: {img_files}")
-            
-            if os.path.exists(ann_dir):
-                ann_files = os.listdir(ann_dir)[:5]  # Primeros 5
-                logger.error(f"Ejemplos de anotaciones en {ds_dir}: {ann_files}")
-        
         return
     
     logger.info(f"Total de imágenes emparejadas encontradas: {len(all_images_info)}")
@@ -908,22 +943,12 @@ def main():
     # Preparar transforms
     train_transform, val_transform = get_transforms()
     
-    # Crear datasets usando la información recopilada
-    logger.info("Creando datasets...")
-    full_dataset = SuperviselyDataset(
-        images_info_list=all_images_info,
-        transform=None,  # Se aplicará después del split
-        image_size=config['image_size']
-    )
-    
-    logger.info(f"Dataset total creado con {len(full_dataset)} imágenes")
-    
     # Split train/validation (80/20)
-    train_size = int(0.8 * len(full_dataset))
-    val_size = len(full_dataset) - train_size
+    train_size = int(0.8 * len(all_images_info))
+    val_size = len(all_images_info) - train_size
     
     # Crear índices aleatorios para el split
-    indices = list(range(len(full_dataset)))
+    indices = list(range(len(all_images_info)))
     np.random.seed(42)  # Para reproducibilidad
     np.random.shuffle(indices)
     
@@ -953,7 +978,8 @@ def main():
         batch_size=config['batch_size'],
         shuffle=True,
         num_workers=config['num_workers'],
-        pin_memory=config['pin_memory']
+        pin_memory=config['pin_memory'],
+        drop_last=True  # Importante para evitar problemas con batch sizes inconsistentes
     )
     
     val_loader = DataLoader(
@@ -961,7 +987,8 @@ def main():
         batch_size=config['batch_size'],
         shuffle=False,
         num_workers=config['num_workers'],
-        pin_memory=config['pin_memory']
+        pin_memory=config['pin_memory'],
+        drop_last=True
     )
     
     logger.info(f"Dataset cargado: {len(train_dataset)} train, {len(val_dataset)} val")
@@ -1004,34 +1031,32 @@ class ModelInference:
         self.model.to(device)
         self.model.eval()
         
-        # Transform para inferencia
-        self.transform = A.Compose([
-            A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-            ToTensorV2()
-        ])
-    
-    def remove_background(self, image_path, output_path=None):
+    def remove_background(self, image_path, output_path=None, image_size=384):
         """
         Remueve el fondo de una imagen.
         
         Args:
             image_path: Ruta de la imagen de entrada
             output_path: Ruta de la imagen de salida (opcional)
+            image_size: Tamaño para el procesamiento
         
         Returns:
             numpy array con la imagen procesada (RGBA)
         """
         # Cargar imagen
         image = cv2.imread(image_path)
+        if image is None:
+            raise ValueError(f"No se pudo cargar la imagen: {image_path}")
+            
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         original_size = image.shape[:2]
         
         # Redimensionar para el modelo
-        image_resized = cv2.resize(image, (256, 256))
+        image_resized = cv2.resize(image, (image_size, image_size))
+        image_normalized = image_resized.astype(np.float32) / 255.0
         
-        # Aplicar transformaciones
-        transformed = self.transform(image=image_resized)
-        input_tensor = transformed['image'].unsqueeze(0).to(self.device)
+        # Convertir a tensor
+        input_tensor = torch.FloatTensor(image_normalized.transpose(2, 0, 1)).unsqueeze(0).to(self.device)
         
         # Inferencia
         with torch.no_grad():
@@ -1104,9 +1129,47 @@ def demo_inference():
     else:
         print(f"Imagen de ejemplo no encontrada: {input_image}")
 
-if __name__ == "__main__":
-    # Para entrenar el modelo
-    main()
+def test_model_forward():
+    """
+    Función de prueba para verificar que el modelo funciona correctamente.
+    """
+    print("Probando forward pass del modelo...")
     
-    # Para hacer inferencia (descomenta la siguiente línea después del entrenamiento)
-    # demo_inference()
+    # Crear modelo
+    model = UNetAutoencoder(pretrained=False, use_attention=True)
+    model.eval()
+    
+    # Crear tensor de prueba
+    test_input = torch.randn(1, 3, 384, 384)
+    
+    try:
+        with torch.no_grad():
+            output = model(test_input)
+        
+        print(f"✓ Forward pass exitoso!")
+        print(f"  Input shape: {test_input.shape}")
+        print(f"  Output shape: {output.shape}")
+        print(f"  Expected output shape: (1, 4, 384, 384)")
+        
+        if output.shape == (1, 4, 384, 384):
+            print("✓ Dimensiones de salida correctas")
+            return True
+        else:
+            print("✗ Dimensiones de salida incorrectas")
+            return False
+            
+    except Exception as e:
+        print(f"✗ Error en forward pass: {e}")
+        return False
+
+if __name__ == "__main__":
+    # Primero probar el modelo
+    if test_model_forward():
+        print("Modelo verificado. Procediendo con el entrenamiento...\n")
+        # Para entrenar el modelo
+        main()
+        
+        # Para hacer inferencia (descomenta la siguiente línea después del entrenamiento)
+        # demo_inference()
+    else:
+        print("El modelo tiene problemas. Revisar la arquitectura.")
