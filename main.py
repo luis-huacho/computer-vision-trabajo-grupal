@@ -1151,15 +1151,16 @@ def main():
     """Función principal para entrenar el modelo."""
     # Configuración ajustada para evitar problemas de memoria y NaN
     config = {
-        'batch_size': 4,  # Reducido aún más para estabilidad
-        'learning_rate': 5e-5,  # Learning rate más conservador
-        'weight_decay': 1e-6,  # Weight decay más pequeño
-        'num_epochs': 100,
+        'batch_size': 32,
+        'learning_rate': 1.5e-4,
+        'weight_decay': 1e-6,
+        'num_epochs': 200,
         'image_size': 384,
         'device': 'cuda' if torch.cuda.is_available() else 'cpu',
-        'num_workers': 2,  # Reducido para estabilidad
+        'num_workers': 12,
         'pin_memory': True,
-        'mixed_precision': False
+        'mixed_precision': True,
+        'use_data_parallel': True,
     }
 
     # Setup logging
