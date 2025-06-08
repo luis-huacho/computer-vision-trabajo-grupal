@@ -1,78 +1,58 @@
-# 🎭 Removedor de Fondo con IA - U-Net Autoencoder
+# 🎭 Removedor de Fondo con IA - Aplicación Web
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://streamlit.io)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-1.9+-orange.svg)](https://pytorch.org/)
 
-Una aplicación web inteligente que utiliza un modelo U-Net con Attention Gates para remover automáticamente el fondo de imágenes, manteniendo solo las personas detectadas.
+Aplicación web desarrollada con Streamlit que utiliza un modelo U-Net avanzado para remover automáticamente el fondo de imágenes, manteniendo solo las personas detectadas.
 
-## 📸 Demo
-
-![Demo Animation](https://via.placeholder.com/800x400/1f1f1f/ffffff?text=Demo+de+la+Aplicación)
+**Desarrollado por:** Luis Huacho y Dominick Alvarez  
+**Institución:** Maestría en Informática, PUCP
 
 ## 🚀 Características
 
-- 🤖 **Modelo IA avanzado**: U-Net con Attention Gates entrenado en dataset Supervisely
-- 🖼️ **Procesamiento inteligente**: Detecta y mantiene solo personas en la imagen
-- 🎨 **Interfaz intuitiva**: Drag & drop para subir imágenes
-- 📱 **Responsive**: Funciona en desktop y móvil
-- ⚡ **Rápido**: Procesamiento optimizado para CPU y GPU
-- 💾 **Descarga directa**: Resultado en PNG con transparencia
-- 📊 **Métricas**: Estadísticas del procesamiento
+- 🤖 **IA Avanzada**: Modelo U-Net con Attention Gates
+- 🎯 **Precisión Alta**: Entrenado en dataset Supervisely Persons
+- 🖼️ **Procesamiento Inteligente**: Mantiene dimensiones originales
+- 📱 **Interfaz Intuitiva**: Drag & drop para subir imágenes
+- ⚡ **Optimizado**: Funciona en CPU y GPU
+- 📊 **Modo Debug**: Visualiza todo el proceso paso a paso
+- 💾 **Descarga Directa**: Resultado en PNG con transparencia
 
-## 🛠️ Instalación
+## 🛠️ Instalación Rápida
 
 ### Prerrequisitos
 
 - Python 3.8 o superior
-- pip o conda
-- Modelo entrenado (`best_model.pth`)
+- Modelo entrenado (`checkpoints/best_model.pth`)
 
-### 1. Clonar el repositorio
-
-```bash
-git clone https://github.com/tu-usuario/bg-removal-ai.git
-cd bg-removal-ai
-```
-
-### 2. Crear entorno virtual (recomendado)
+### 1. Preparar Entorno
 
 ```bash
-# Con venv
+# Clonar repositorio
+git clone <repository-url>
+cd unet-background-removal
+
+# Crear entorno virtual
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
-# o
-venv\Scripts\activate     # Windows
+# venv\Scripts\activate   # Windows
 
-# Con conda
-conda create -n bg-removal python=3.9
-conda activate bg-removal
+# Instalar dependencias
+pip install streamlit torch torchvision opencv-python pillow numpy matplotlib
 ```
 
-### 3. Instalar dependencias
+### 2. Verificar Modelo
 
 ```bash
-pip install -r requirements.txt
+# Asegurarse de que el modelo existe
+ls checkpoints/best_model.pth
+
+# Si no existe, entrenar primero:
+python run_training.py
 ```
 
-### 4. Estructura del proyecto
-
-```
-bg-removal-ai/
-├── app.py                 # Aplicación Streamlit principal
-├── main.py               # Código de entrenamiento del modelo
-├── requirements.txt      # Dependencias
-├── README-ia.md         # Este archivo
-├── checkpoints/         # Modelos entrenados
-│   └── best_model.pth   # Modelo principal (requerido)
-├── logs/                # Logs de entrenamiento
-├── plots/               # Gráficas de entrenamiento
-└── temp/                # Archivos temporales
-```
-
-## 🎯 Uso Rápido
-
-### Ejecutar la aplicación
+### 3. Ejecutar Aplicación
 
 ```bash
 streamlit run app.py
@@ -80,322 +60,278 @@ streamlit run app.py
 
 La aplicación se abrirá automáticamente en `http://localhost:8501`
 
-### Pasos de uso
+## 🎯 Modo de Uso
 
-1. **Subir imagen**: Arrastra o selecciona una imagen (JPG, PNG, JPEG)
-2. **Procesar**: Haz clic en "🚀 Procesar Imagen"
-3. **Descargar**: Obtén el resultado sin fondo en PNG
+### Interfaz Principal
+
+1. **Subir Imagen**: Arrastra o selecciona una imagen (JPG, PNG, JPEG)
+2. **Configurar**: Ajusta el tamaño de procesamiento (128-512px)
+3. **Procesar**: Haz clic en "🚀 Procesar Imagen"
+4. **Visualizar**: Observa el resultado paso a paso
+5. **Descargar**: Obtén el archivo PNG sin fondo
+
+### Modo Debug
+
+La aplicación incluye un modo debug completo que muestra:
+
+- **Imagen Original**: Como se subió
+- **Imagen Redimensionada**: Con padding para el modelo
+- **Máscara Generada**: Canal alpha del modelo
+- **Resultado Procesado**: Antes de restaurar dimensiones
+- **Resultado Final**: Restaurado al tamaño original
+
+### Análisis Automático
+
+- **Métricas de Calidad**: Puntuación automática del resultado
+- **Estadísticas**: Cobertura de personas, contraste, definición
+- **Recomendaciones**: Consejos para mejores resultados
+- **Análisis por Zonas**: Distribución de personas en la imagen
 
 ## 📋 Requisitos del Sistema
 
 ### Mínimos (CPU)
 - **RAM**: 4 GB
 - **Procesador**: Intel i5 o AMD equivalente
-- **Tiempo de procesamiento**: 15-30 segundos por imagen
+- **Tiempo**: 15-30 segundos por imagen
 
 ### Recomendados (GPU)
 - **RAM**: 8 GB
-- **GPU**: NVIDIA GTX 1060 o superior (2GB VRAM)
-- **Tiempo de procesamiento**: 1-5 segundos por imagen
+- **GPU**: NVIDIA GTX 1060+ (2GB VRAM)
+- **Tiempo**: 1-5 segundos por imagen
 
-## 🌐 Opciones de Despliegue
+## 🌐 Despliegue
 
-### 1. Streamlit Community Cloud (Gratis) ⭐
+### 1. Streamlit Community Cloud (Gratis)
 
-**Más fácil y gratuito**
+```bash
+# Subir a GitHub
+git add .
+git commit -m "Deploy app"
+git push origin main
 
-1. Sube tu código a GitHub
-2. Ve a [share.streamlit.io](https://share.streamlit.io)
-3. Conecta tu repositorio
-4. ¡Listo! Tu app estará disponible públicamente
-
-```yaml
-# .streamlit/config.toml (opcional)
-[server]
-maxUploadSize = 200
-
-[theme]
-primaryColor = "#FF6B6B"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F0F2F6"
+# Desplegar en share.streamlit.io
+# 1. Ve a share.streamlit.io
+# 2. Conecta tu repositorio
+# 3. ¡Listo!
 ```
 
-### 2. Docker (Local/Servidor)
+### 2. Docker Local
 
-**Dockerfile**
 ```dockerfile
+# Dockerfile
 FROM python:3.9-slim
 
 WORKDIR /app
 
-# Instalar dependencias del sistema
+# Dependencias del sistema
 RUN apt-get update && apt-get install -y \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
+    libglib2.0-0 libsm6 libxext6 libxrender-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar y instalar dependencias Python
+# Dependencias Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar código
+# Código
 COPY . .
 
-# Exponer puerto
 EXPOSE 8501
 
-# Comando de inicio
-CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0"]
 ```
 
-**docker-compose.yml**
-```yaml
-version: '3.8'
-services:
-  bg-removal:
-    build: .
-    ports:
-      - "8501:8501"
-    volumes:
-      - ./checkpoints:/app/checkpoints
-    environment:
-      - STREAMLIT_SERVER_MAX_UPLOAD_SIZE=200
-```
-
-**Comandos:**
 ```bash
 # Construir y ejecutar
-docker-compose up --build
-
-# Solo ejecutar
-docker-compose up -d
+docker build -t bg-removal-app .
+docker run -p 8501:8501 bg-removal-app
 ```
 
 ### 3. Heroku
 
-**Procfile**
-```
-web: streamlit run app.py --server.port=$PORT --server.address=0.0.0.0
-```
-
-**runtime.txt**
-```
-python-3.9.16
-```
-
-**Comandos:**
 ```bash
-# Instalar Heroku CLI y ejecutar
+# Procfile
+echo "web: streamlit run app.py --server.port=\$PORT --server.address=0.0.0.0" > Procfile
+
+# Desplegar
 heroku create tu-app-name
 git push heroku main
 ```
 
-### 4. Railway
+## ⚙️ Configuración Avanzada
 
-1. Conecta tu repositorio en [railway.app](https://railway.app)
-2. Configura las variables de entorno
-3. ¡Despliega automáticamente!
-
-### 5. Render
-
-1. Conecta tu repositorio en [render.com](https://render.com)
-2. Selecciona "Web Service"
-3. Configura:
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `streamlit run app.py --server.address=0.0.0.0 --server.port=$PORT`
-
-## ⚙️ Optimizaciones
-
-### Para CPU (Despliegue en la nube)
+### Optimizar para CPU
 
 ```python
-# Agregar al inicio de app.py
+# En app.py, agregar al inicio:
 import torch
-torch.set_num_threads(2)  # Limitar threads
-torch.backends.cudnn.enabled = False  # Deshabilitar CUDA
+torch.set_num_threads(2)
+torch.backends.cudnn.enabled = False
 
-# En la función remove_background, cambiar:
-image_size = 256  # Reducir de 384 a 256 para mayor velocidad
+# Reducir tamaño de procesamiento
+image_size = 256  # En lugar de 384
 ```
 
-### Para GPU (Servidor local)
+### Personalizar Interfaz
 
-```python
-# Verificar disponibilidad de GPU
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(f"Usando dispositivo: {device}")
+```toml
+# .streamlit/config.toml
+[theme]
+primaryColor = "#FF6B6B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
 
-# Opcional: especificar GPU específica
-# device = 'cuda:0'
+[server]
+maxUploadSize = 200
+```
+
+### Variables de Entorno
+
+```bash
+# .env
+STREAMLIT_SERVER_PORT=8501
+STREAMLIT_SERVER_MAX_UPLOAD_SIZE=200
+STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
 ```
 
 ## 🔧 Solución de Problemas
 
-### Error: "Modelo no encontrado"
+### "Modelo no encontrado"
 
 ```bash
-# Verificar que el archivo existe
+# Verificar archivo
 ls -la checkpoints/best_model.pth
 
-# Si no existe, necesitas entrenar el modelo primero
-python main.py
+# Entrenar si es necesario
+python run_training.py
 ```
 
-### Error: "Out of memory"
+### "Out of memory"
 
 ```python
-# Reducir tamaño de imagen
-image_size = 256  # En lugar de 384
-
-# Procesar en CPU
-device = 'cpu'
+# Reducir tamaño en configuración de sidebar
+processing_size = st.slider("Tamaño de procesamiento", 128, 256, 128)
 ```
 
-### Error: "Module not found"
-
-```bash
-# Reinstalar dependencias
-pip install --upgrade -r requirements.txt
-
-# Verificar instalación de PyTorch
-python -c "import torch; print(torch.__version__)"
-```
-
-### Error: "Port already in use"
+### "Port already in use"
 
 ```bash
 # Usar puerto diferente
 streamlit run app.py --server.port 8502
 
-# O detener proceso existente
-lsof -ti:8501 | xargs kill -9
+# O detener proceso
+pkill -f streamlit
+```
+
+### Rendimiento Lento
+
+```python
+# Optimizaciones en app.py:
+# 1. Usar cache para el modelo
+@st.cache_resource
+def load_model():
+    return BackgroundRemoverDebug(model_path, device)
+
+# 2. Optimizar threads
+torch.set_num_threads(2)
+
+# 3. Reducir tamaño de imagen
+image_size = 256
 ```
 
 ## 📊 Métricas de Rendimiento
 
-| Dispositivo | Tiempo/Imagen | RAM Usada | Calidad |
-|-------------|---------------|-----------|---------|
-| CPU (i5)    | 20-30s       | 2-4 GB    | Alta    |
-| CPU (i7)    | 15-25s       | 2-4 GB    | Alta    |
-| GPU (1060)  | 3-5s         | 1-2 GB    | Alta    |
-| GPU (3080)  | 1-2s         | 1-2 GB    | Alta    |
+| Dispositivo | Tiempo/Imagen | RAM | Calidad |
+|-------------|---------------|-----|---------|
+| CPU (i5)    | 20-30s       | 3GB | Alta    |
+| CPU (i7)    | 15-25s       | 3GB | Alta    |
+| GPU (1060)  | 3-5s         | 2GB | Alta    |
+| GPU (3080)  | 1-2s         | 2GB | Alta    |
 
-## 🎨 Personalización
+## 🎨 Funcionalidades Destacadas
 
-### Cambiar tema
+### Análisis Técnico Detallado
 
-```toml
-# .streamlit/config.toml
-[theme]
-primaryColor = "#FF6B6B"           # Color principal
-backgroundColor = "#FFFFFF"        # Fondo
-secondaryBackgroundColor = "#F0F2F6"  # Fondo secundario
-textColor = "#262730"              # Texto
-```
+- **Dimensiones**: Original vs procesado
+- **Estadísticas de Máscara**: Cobertura, contraste, definición
+- **Análisis por Zonas**: Distribución 3x3 de la imagen
+- **Histograma**: Distribución de valores en la máscara
+- **Mapa de Calor**: Visualización de zonas con personas
 
-### Modificar límites
+### Consejos Inteligentes
 
-```python
-# En app.py, cambiar:
-st.file_uploader(
-    "Elige una imagen...",
-    type=['png', 'jpg', 'jpeg'],
-    # Cambiar límite de tamaño (en MB)
-    help="Máximo 10MB por imagen"
-)
-```
+El sistema proporciona recomendaciones automáticas:
 
-## 📱 Variables de Entorno
+- ✅ **Mejores prácticas**: Iluminación, contraste, resolución
+- ⚠️ **Evitar**: Fondos similares, personas cortadas, baja resolución
+- 📊 **Puntuación automática**: Análisis de calidad de 0-100
 
+### Descargas Múltiples
+
+- **Resultado Final**: PNG con transparencia en tamaño original
+- **Máscara**: PNG en escala de grises
+- **Resultado Procesado**: Versión intermedia antes de restaurar
+
+## 🚀 Inicio Rápido - 3 Pasos
+
+### 1. Preparar
 ```bash
-# .env (opcional)
-STREAMLIT_SERVER_PORT=8501
-STREAMLIT_SERVER_ADDRESS=0.0.0.0
-STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
-STREAMLIT_SERVER_MAX_UPLOAD_SIZE=200
+git clone <repo> && cd unet-background-removal
+pip install streamlit torch torchvision opencv-python pillow numpy
 ```
 
-## 🚀 Despliegue Rápido - Guía Paso a Paso
-
-### Opción 1: Streamlit Cloud (Recomendado para principiantes)
-
-1. **Preparar repositorio**:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/tu-usuario/bg-removal-ai.git
-   git push -u origin main
-   ```
-
-2. **Desplegar**:
-   - Ve a [share.streamlit.io](https://share.streamlit.io)
-   - Conecta tu cuenta de GitHub
-   - Selecciona tu repositorio
-   - ¡Listo en 2 minutos!
-
-### Opción 2: Docker (Para desarrolladores)
-
+### 2. Verificar
 ```bash
-# Comando único
-docker run -p 8501:8501 -v $(pwd)/checkpoints:/app/checkpoints tu-app:latest
+ls checkpoints/best_model.pth  # Debe existir
 ```
 
-### Opción 3: Servidor local
-
+### 3. Ejecutar
 ```bash
-# Instalar y ejecutar
-pip install -r requirements.txt
 streamlit run app.py
 ```
 
-## 📞 Soporte
+¡La aplicación estará lista en `http://localhost:8501`!
 
-### Problemas comunes
+## 📱 Acceso Móvil
 
-- **¿El modelo no carga?** → Verifica que `checkpoints/best_model.pth` existe
-- **¿Muy lento?** → Reduce `image_size` a 256 o usa GPU
-- **¿Error de memoria?** → Usa CPU en lugar de GPU
-- **¿No encuentra módulos?** → Reinstala dependencias
+La aplicación es completamente responsive y funciona en:
 
-### Contacto
-
-- 🐛 **Issues**: [GitHub Issues](https://github.com/tu-usuario/bg-removal-ai/issues)
-- 💬 **Discusiones**: [GitHub Discussions](https://github.com/tu-usuario/bg-removal-ai/discussions)
-- 📧 **Email**: tu-email@ejemplo.com
+- 📱 **Móviles**: iPhone, Android
+- 💻 **Tablets**: iPad, Android tablets
+- 🖥️ **Desktop**: Windows, Mac, Linux
 
 ## 🤝 Contribuir
 
-¡Las contribuciones son bienvenidas!
+Este proyecto forma parte de la investigación en Computer Vision de la Maestría en Informática - PUCP.
 
-1. Fork el proyecto
-2. Crea una rama (`git checkout -b feature/nueva-caracteristica`)
-3. Commit tus cambios (`git commit -m 'Agregar nueva característica'`)
-4. Push a la rama (`git push origin feature/nueva-caracteristica`)
-5. Abre un Pull Request
+**Desarrolladores:**
+- **Luis Huacho** - Implementación del modelo y entrenamiento
+- **Dominick Alvarez** - Arquitectura y optimización
+
+### Mejoras Futuras
+
+- [ ] Soporte para múltiples personas
+- [ ] Detección de objetos adicionales
+- [ ] Procesamiento en tiempo real
+- [ ] API REST para integración
+- [ ] Modo batch para múltiples imágenes
+
+## 📞 Soporte
+
+### Problemas Frecuentes
+
+- **Modelo no carga**: Verificar `checkpoints/best_model.pth`
+- **Lento en CPU**: Reducir tamaño a 256px o usar GPU
+- **Error de memoria**: Usar CPU en lugar de GPU
+- **Calidad baja**: Usar imágenes con mejor iluminación y contraste
+
+### Contacto
+
+- 🐛 **Issues**: GitHub Issues del repositorio
+- 💬 **Discusiones**: GitHub Discussions
+- 📧 **Email**: Contacto directo con los desarrolladores
 
 ## 📄 Licencia
 
-Este proyecto está bajo la licencia MIT. Ver `LICENSE` para más detalles.
-
-## ⭐ Reconocimientos
-
-- **Dataset**: Supervisely Person Dataset
-- **Arquitectura**: U-Net con Attention Gates
-- **Framework**: Streamlit, PyTorch
-- **Inspiración**: Investigación en Computer Vision y Deep Learning
-
----
-
-### 🎉 ¡Listo para usar!
-
-Con esta guía puedes desplegar la aplicación en menos de 10 minutos. Para principiantes, recomendamos empezar con **Streamlit Community Cloud** por su simplicidad.
-
-**¿Dudas?** Abre un [issue](https://github.com/tu-usuario/bg-removal-ai/issues) y te ayudaremos.
-
----
-
-**Desarrollado con ❤️ y mucho ☕**
+Proyecto desarrollado bajo Licencia MIT para fines académicos y de investigación en la PUCP.
+**Desarrollado con ❤️ en la PUCP**
