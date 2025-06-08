@@ -154,6 +154,65 @@ def run_training(output_log, errors_log, verbose=False):
         return False
 
 
+def move_results_to_timestamped_dirs():
+    """Mueve los resultados a subdirectorios con timestamp."""
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+    print_info("Organizando resultados del entrenamiento...")
+
+    # Mover plots
+    plots_dir = 'plots'
+    plots_timestamp_dir = os.path.join(plots_dir, timestamp)
+
+    if os.path.exists(plots_dir):
+        # Obtener archivos en plots (excluyendo subdirectorios)
+        plot_files = [f for f in os.listdir(plots_dir)
+                      if os.path.isfile(os.path.join(plots_dir, f))
+                      and f.lower().endswith(('.png', '.jpg', '.jpeg', '.pdf', '.svg'))]
+
+        if plot_files:
+            try:
+                os.makedirs(plots_timestamp_dir, exist_ok=True)
+                moved_plots = 0
+                for file in plot_files:
+                    src = os.path.join(plots_dir, file)
+                    dst = os.path.join(plots_timestamp_dir, file)
+                    os.rename(src, dst)
+                    moved_plots += 1
+                print_success(f"Movidos {moved_plots} archivos de plots a: plots/{timestamp}/")
+            except Exception as e:
+                print_error(f"Error moviendo plots: {e}")
+        else:
+            print_info("No se encontraron archivos de plots para mover")
+
+    # Mover checkpoints
+    checkpoints_dir = 'checkpoints'
+    checkpoints_timestamp_dir = os.path.join(checkpoints_dir, timestamp)
+
+    if os.path.exists(checkpoints_dir):
+        # Obtener archivos en checkpoints (excluyendo subdirectorios)
+        checkpoint_files = [f for f in os.listdir(checkpoints_dir)
+                            if os.path.isfile(os.path.join(checkpoints_dir, f))
+                            and f.lower().endswith(('.pth', '.pt', '.ckpt'))]
+
+        if checkpoint_files:
+            try:
+                os.makedirs(checkpoints_timestamp_dir, exist_ok=True)
+                moved_checkpoints = 0
+                for file in checkpoint_files:
+                    src = os.path.join(checkpoints_dir, file)
+                    dst = os.path.join(checkpoints_timestamp_dir, file)
+                    os.rename(src, dst)
+                    moved_checkpoints += 1
+                print_success(f"Movidos {moved_checkpoints} checkpoints a: checkpoints/{timestamp}/")
+            except Exception as e:
+                print_error(f"Error moviendo checkpoints: {e}")
+        else:
+            print_info("No se encontraron checkpoints para mover")
+
+    return timestamp
+
+
 def show_summary(output_log, errors_log):
     """Muestra resumen del entrenamiento."""
     print_info("Resumen del entrenamiento:")
@@ -225,6 +284,12 @@ Ejemplos:
 
     # Ejecutar entrenamiento
     success = run_training(output_log, errors_log, verbose=args.verbose)
+
+    # Si el entrenamiento fue exitoso, organizar resultados
+    if success:
+        print()
+        results_timestamp = move_results_to_timestamped_dirs()
+        print_info(f"Resultados organizados en subdirectorios: {results_timestamp}")
 
     print()
     show_summary(output_log, errors_log)
