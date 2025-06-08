@@ -1,0 +1,3 @@
+[submodule "persons"]
+	path = persons
+	url = https://github.com/supervisely-ecosystem/persons.git
