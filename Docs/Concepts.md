@@ -59,7 +59,7 @@ Donde:
 **Concepto**: Utilizar un modelo pre-entrenado en una tarea relacionada como punto de partida.
 
 **En nuestro modelo**:
-- **Backbone**: ResNet34 pre-entrenado en ImageNet
+- **Backbone**: ResNet50 pre-entrenado en ImageNet
 - **Ventajas**: Convergencia más rápida, mejor extracción de características
 - **Adaptación**: Las últimas capas se ajustan para nuestra tarea específica
 

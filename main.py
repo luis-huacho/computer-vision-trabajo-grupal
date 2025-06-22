@@ -4,7 +4,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
-from torchvision.models import resnet34
+from torchvision.models import resnet50
 import numpy as np
 import cv2
 import os
@@ -92,54 +92,55 @@ class DoubleConv(nn.Module):
 class UNetEncoder(nn.Module):
     """
     Encoder path del U-Net con skip connections.
-    Utiliza ResNet34 pre-entrenado como backbone para mejor extracción de características.
+    Utiliza ResNet50 pre-entrenado como backbone para mejor extracción de características.
     """
+
     def __init__(self, pretrained=True):
         super(UNetEncoder, self).__init__()
-        
-        # Usar ResNet34 pre-entrenado como backbone
-        resnet = resnet34(pretrained=pretrained)
-        
+
+        # Usar ResNet50 pre-entrenado como backbone
+        resnet = models.resnet50(pretrained=pretrained)
+
         # Extraer capas del ResNet
-        self.conv1 = resnet.conv1  # 64 channels
+        self.conv1 = resnet.conv1
         self.bn1 = resnet.bn1
         self.relu = resnet.relu
         self.maxpool = resnet.maxpool
-        
-        self.layer1 = resnet.layer1  # 64 channels
-        self.layer2 = resnet.layer2  # 128 channels
-        self.layer3 = resnet.layer3  # 256 channels
-        self.layer4 = resnet.layer4  # 512 channels
-        
+
+        self.layer1 = resnet.layer1
+        self.layer2 = resnet.layer2
+        self.layer3 = resnet.layer3
+        self.layer4 = resnet.layer4
+
         # Capas adicionales para el bottleneck
-        self.bottleneck = DoubleConv(512, 1024, dropout_rate=0.2)
-        
+        self.bottleneck = DoubleConv(2048, 1024, dropout_rate=0.2)  # Ajusta los canales según ResNet-50
+
     def forward(self, x):
         # Encoder path con skip connections
         skip_connections = []
-        
+
         # Initial convolution
         x1 = self.relu(self.bn1(self.conv1(x)))
         skip_connections.append(x1)  # Skip 1: 64 channels
-        
+
         x2 = self.maxpool(x1)
-        
+
         # ResNet layers
         x3 = self.layer1(x2)
-        skip_connections.append(x3)  # Skip 2: 64 channels
-        
+        skip_connections.append(x3)  # Skip 2: 256 channels
+
         x4 = self.layer2(x3)
-        skip_connections.append(x4)  # Skip 3: 128 channels
-        
+        skip_connections.append(x4)  # Skip 3: 512 channels
+
         x5 = self.layer3(x4)
-        skip_connections.append(x5)  # Skip 4: 256 channels
-        
+        skip_connections.append(x5)  # Skip 4: 1024 channels
+
         x6 = self.layer4(x5)
-        skip_connections.append(x6)  # Skip 5: 512 channels
-        
+        skip_connections.append(x6)  # Skip 5: 2048 channels
+
         # Bottleneck
         x7 = self.bottleneck(x6)
-        
+
         return x7, skip_connections
 
 class UNetDecoder(nn.Module):

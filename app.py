@@ -2,7 +2,7 @@ import streamlit as st
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision.models import resnet34
+from torchvision.models import resnet50
 import numpy as np
 import cv2
 import os
@@ -66,7 +66,7 @@ class UNetEncoder(nn.Module):
     def __init__(self, pretrained=True):
         super(UNetEncoder, self).__init__()
         
-        resnet = resnet34(pretrained=pretrained)
+        resnet = resnet50(pretrained=pretrained)
         
         self.conv1 = resnet.conv1
         self.bn1 = resnet.bn1
