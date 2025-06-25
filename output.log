@@ -1,8 +1,42 @@
+=== PRUEBAS DEL SISTEMA U-NET AUTOENCODER ===
+
 Probando forward pass del modelo...
 ✓ Forward pass exitoso!
   Input shape: torch.Size([1, 3, 384, 384])
   Output shape: torch.Size([1, 4, 384, 384])
   Expected output shape: (1, 4, 384, 384)
 ✓ Dimensiones de salida correctas
-Modelo verificado. Procediendo con el entrenamiento...
+Probando procesamiento de imágenes...
+
+Test case 1: 480x640x3
+  ✓ Original: (480, 640, 3) -> Procesada: (384, 384, 3)
+  ✓ Máscara: (480, 640) -> Procesada: (384, 384)
+  ✓ Dimensiones correctas
+  ✓ Restaurada: (480, 640, 3)
+  ✓ Restauración exitosa
+
+Test case 2: 640x480x3
+  ✓ Original: (640, 480, 3) -> Procesada: (384, 384, 3)
+  ✓ Máscara: (640, 480) -> Procesada: (384, 384)
+  ✓ Dimensiones correctas
+  ✓ Restaurada: (640, 480, 3)
+  ✓ Restauración exitosa
+
+Test case 3: 512x512x3
+  ✓ Original: (512, 512, 3) -> Procesada: (384, 384, 3)
+  ✓ Máscara: (512, 512) -> Procesada: (384, 384)
+  ✓ Dimensiones correctas
+  ✓ Restaurada: (512, 512, 3)
+  ✓ Restauración exitosa
+
+Test case 4: 1080x1920x3
+  ✓ Original: (1080, 1920, 3) -> Procesada: (384, 384, 3)
+  ✓ Máscara: (1080, 1920) -> Procesada: (384, 384)
+  ✓ Dimensiones correctas
+  ✓ Restaurada: (1080, 1920, 3)
+  ✓ Restauración exitosa
+
+✓ Pruebas de procesamiento de imágenes completadas
+
+✅ Todas las pruebas pasaron. Procediendo con el entrenamiento...
 
