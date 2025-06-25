@@ -27,6 +27,7 @@ class COCOPersonDataset(Dataset):
             store_metadata: Si guardar metadatos para restaurar tamaño original
         """
         self.coco_root = coco_root
+        self.annotation_file = annotation_file
         self.transform = transform
         self.image_size = image_size
         self.store_metadata = store_metadata
@@ -69,6 +70,20 @@ class COCOPersonDataset(Dataset):
     def __len__(self):
         return len(self.valid_image_ids)
 
+    def _get_image_directory(self):
+        """
+        Determina el directorio correcto de imágenes basado en el archivo de anotaciones.
+        """
+        if 'train2017' in self.annotation_file:
+            return os.path.join(self.coco_root, 'train2017')
+        elif 'val2017' in self.annotation_file:
+            return os.path.join(self.coco_root, 'val2017')
+        else:
+            # Fallback: intentar detectar automáticamente
+            print(f"⚠️  No se pudo determinar directorio desde: {self.annotation_file}")
+            print("   Usando train2017 como fallback")
+            return os.path.join(self.coco_root, 'train2017')
+
     def create_person_mask(self, image_shape, annotations):
         """
         Crea máscara de personas a partir de las anotaciones COCO.
@@ -108,10 +123,8 @@ class COCOPersonDataset(Dataset):
         annotations = self.image_to_annotations[img_id]
 
         # Construir path de imagen
-        if 'train' in img_info['file_name']:
-            img_path = os.path.join(self.coco_root, 'train2017', img_info['file_name'])
-        else:
-            img_path = os.path.join(self.coco_root, 'val2017', img_info['file_name'])
+        image_dir = self._get_image_directory()
+        img_path = os.path.join(image_dir, img_info['file_name'])
 
         try:
             # Cargar imagen
