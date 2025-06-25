@@ -392,108 +392,100 @@ class UNetAutoencoder(nn.Module):
         return decoded
 
 
-class SuperviselyDataset(Dataset):
+class COCOPersonDataset(Dataset):
     """
-    Dataset personalizado para cargar imágenes y máscaras del dataset Supervisely.
-    CORREGIDO: Ahora mantiene proporciones y permite restaurar tamaño original.
+    Dataset personalizado para cargar imágenes y máscaras del dataset COCO.
+    Se enfoca únicamente en las personas (keypoints).
     """
 
-    def __init__(self, images_info_list, transform=None, image_size=384, store_metadata=False):
+    def __init__(self, coco_root, annotation_file, transform=None, image_size=384, store_metadata=False):
         """
         Args:
-            images_info_list: Lista de diccionarios con 'image_path' y 'annotation_path'
+            coco_root: Directorio raíz del dataset COCO
+            annotation_file: Archivo JSON de anotaciones (person_keypoints_train2017.json o person_keypoints_val2017.json)
             transform: Transformaciones de albumentations
             image_size: Tamaño al que redimensionar las imágenes
             store_metadata: Si guardar metadatos para restaurar tamaño original
         """
-        self.images_info = images_info_list
+        self.coco_root = coco_root
         self.transform = transform
         self.image_size = image_size
         self.store_metadata = store_metadata
         self.processor = ImageProcessor()
 
+        # Cargar anotaciones COCO
+        with open(annotation_file, 'r') as f:
+            self.coco_data = json.load(f)
+
+        # Crear mapeos
+        self.images = {img['id']: img for img in self.coco_data['images']}
+
+        # CAMBIO IMPORTANTE: Filtrar solo anotaciones con keypoints válidos (personas)
+        self.annotations = []
+        for ann in self.coco_data['annotations']:
+            # Solo incluir anotaciones que tengan keypoints y área > 0
+            if 'keypoints' in ann and ann.get('area', 0) > 500:  # Filtrar personas muy pequeñas
+                self.annotations.append(ann)
+
+        # Agrupar anotaciones por imagen
+        self.image_to_annotations = {}
+        for ann in self.annotations:
+            img_id = ann['image_id']
+            if img_id not in self.image_to_annotations:
+                self.image_to_annotations[img_id] = []
+            self.image_to_annotations[img_id].append(ann)
+
+        # Lista de IDs de imágenes válidas (que tienen personas)
+        self.valid_image_ids = list(self.image_to_annotations.keys())
+
+        print(f"Dataset COCO cargado: {len(self.valid_image_ids)} imágenes con personas")
+
     def __len__(self):
-        return len(self.images_info)
+        return len(self.valid_image_ids)
 
-    def load_supervisely_mask(self, annotation_path):
+    def create_person_mask(self, image_shape, annotations):
         """
-        Carga la máscara desde el formato JSON de Supervisely.
+        Crea máscara de personas a partir de las anotaciones COCO.
+        Usa la segmentación si está disponible, sino crea rectángulo del bbox.
         """
-        try:
-            with open(annotation_path, 'r', encoding='utf-8') as f:
-                annotation = json.load(f)
+        h, w = image_shape[:2]
+        mask = np.zeros((h, w), dtype=np.uint8)
 
-            # Obtener dimensiones de la imagen
-            if 'size' in annotation:
-                height = annotation['size']['height']
-                width = annotation['size']['width']
+        for ann in annotations:
+            # Usar segmentación si está disponible
+            if 'segmentation' in ann and isinstance(ann['segmentation'], list):
+                for seg in ann['segmentation']:
+                    if len(seg) >= 6:  # Mínimo 3 puntos (x,y pairs)
+                        # Convertir a array de puntos
+                        points = np.array(seg).reshape(-1, 2).astype(np.int32)
+                        cv2.fillPoly(mask, [points], 255)
             else:
-                # Fallback: usar dimensiones de la imagen
-                return np.zeros((self.image_size, self.image_size), dtype=np.uint8), None
+                # Fallback: usar bounding box
+                bbox = ann.get('bbox', [])
+                if len(bbox) == 4:
+                    x, y, w_box, h_box = bbox
+                    x, y, w_box, h_box = int(x), int(y), int(w_box), int(h_box)
+                    # Asegurar que está dentro de los límites
+                    x = max(0, x)
+                    y = max(0, y)
+                    w_box = min(w_box, w - x)
+                    h_box = min(h_box, h - y)
+                    if w_box > 0 and h_box > 0:
+                        cv2.rectangle(mask, (x, y), (x + w_box, y + h_box), 255, -1)
 
-            # Crear máscara vacía
-            mask = np.zeros((height, width), dtype=np.uint8)
-
-            # Verificar si hay objetos
-            if 'objects' not in annotation:
-                print(f"No hay objetos en: {annotation_path}")
-                return mask, (height, width)
-
-            # Procesar cada objeto
-            objects_processed = 0
-            for obj in annotation['objects']:
-                class_title = obj.get('classTitle', '').lower()
-
-                # Buscar clases relacionadas con personas
-                person_keywords = ['person', 'human', 'people', 'man', 'woman', 'child']
-                is_person = any(keyword in class_title for keyword in person_keywords)
-
-                if is_person:
-                    geometry_type = obj.get('geometryType', '')
-
-                    if geometry_type == 'polygon':
-                        # Procesar polígonos
-                        if 'points' in obj and 'exterior' in obj['points']:
-                            exterior_points = obj['points']['exterior']
-                            if len(exterior_points) >= 3:  # Mínimo 3 puntos para un polígono
-                                points = np.array([[pt[0], pt[1]] for pt in exterior_points], dtype=np.int32)
-                                cv2.fillPoly(mask, [points], 255)
-                                objects_processed += 1
-
-                    elif geometry_type == 'bitmap':
-                        # Para bitmaps, necesitaríamos decodificar los datos
-                        # Por ahora, crear una máscara básica basada en el bbox si está disponible
-                        if 'bitmap' in obj and 'data' in obj['bitmap']:
-                            # Implementación básica - en un caso real necesitarías decodificar el bitmap
-                            objects_processed += 1
-
-                    elif geometry_type == 'rectangle':
-                        # Procesar rectángulos
-                        if 'points' in obj:
-                            if 'exterior' in obj['points'] and len(obj['points']['exterior']) >= 2:
-                                points = obj['points']['exterior']
-                                x1, y1 = int(points[0][0]), int(points[0][1])
-                                x2, y2 = int(points[1][0]), int(points[1][1])
-                                cv2.rectangle(mask, (x1, y1), (x2, y2), 255, -1)
-                                objects_processed += 1
-
-            if objects_processed == 0:
-                print(f"No se procesaron objetos de persona en: {annotation_path}")
-
-            return mask, (height, width)
-
-        except json.JSONDecodeError as e:
-            print(f"Error de JSON en {annotation_path}: {e}")
-            return np.zeros((self.image_size, self.image_size), dtype=np.uint8), None
-        except Exception as e:
-            print(f"Error cargando anotación {annotation_path}: {e}")
-            return np.zeros((self.image_size, self.image_size), dtype=np.uint8), None
+        return mask
 
     def __getitem__(self, idx):
-        # Obtener información de la imagen
-        img_info = self.images_info[idx]
-        img_path = img_info['image_path']
-        ann_path = img_info['annotation_path']
+        # Obtener ID de imagen
+        img_id = self.valid_image_ids[idx]
+        img_info = self.images[img_id]
+        annotations = self.image_to_annotations[img_id]
+
+        # Construir path de imagen
+        if 'train' in img_info['file_name']:
+            img_path = os.path.join(self.coco_root, 'train2017', img_info['file_name'])
+        else:
+            img_path = os.path.join(self.coco_root, 'val2017', img_info['file_name'])
 
         try:
             # Cargar imagen
@@ -503,10 +495,10 @@ class SuperviselyDataset(Dataset):
 
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-            # Cargar máscara
-            mask, original_size = self.load_supervisely_mask(ann_path)
+            # Crear máscara de personas
+            mask = self.create_person_mask(image.shape, annotations)
 
-            # CORREGIDO: Usar redimensionamiento con padding que mantiene proporciones
+            # Usar redimensionamiento con padding que mantiene proporciones
             image_processed, mask_processed, restore_metadata = self.processor.resize_with_padding(
                 image, mask, self.image_size
             )
@@ -575,7 +567,7 @@ class SuperviselyDataset(Dataset):
             return result
 
         except Exception as e:
-            print(f"Error procesando {img_path}: {e}")
+            print(f"Error procesando imagen {img_id}: {e}")
             # Retornar tensor dummy en caso de error
             dummy_image = torch.zeros(3, self.image_size, self.image_size)
             dummy_target = torch.zeros(4, self.image_size, self.image_size)
@@ -1148,16 +1140,16 @@ class ModelInference:
 
 
 def main():
-    """Función principal para entrenar el modelo."""
-    # Configuración ajustada para evitar problemas de memoria y NaN
+    """Función principal para entrenar el modelo con dataset COCO."""
+    # Configuración ajustada para COCO
     config = {
-        'batch_size': 32,
-        'learning_rate': 1.5e-4,
+        'batch_size': 16,  # Reducido para COCO que tiene imágenes más variadas
+        'learning_rate': 1e-4,
         'weight_decay': 1e-6,
-        'num_epochs': 200,
+        'num_epochs': 100,
         'image_size': 384,
         'device': 'cuda' if torch.cuda.is_available() else 'cpu',
-        'num_workers': 12,
+        'num_workers': 8,
         'pin_memory': True,
         'mixed_precision': True,
         'use_data_parallel': True,
@@ -1165,123 +1157,62 @@ def main():
 
     # Setup logging
     logger = setup_logging()
-    logger.info("Iniciando sistema de entrenamiento U-Net Autoencoder")
+    logger.info("Iniciando sistema de entrenamiento U-Net Autoencoder con COCO Dataset")
     logger.info(f"Dispositivo: {config['device']}")
 
-    # Verificar directorio de datos
-    data_dir = 'persons/project'
+    # CAMBIO PRINCIPAL: Usar directorio COCO
+    coco_root = 'COCO'
 
-    if not os.path.exists(data_dir):
-        logger.error(f"Directorio de datos no encontrado: {data_dir}")
+    if not os.path.exists(coco_root):
+        logger.error(f"Directorio COCO no encontrado: {coco_root}")
         return
 
-    # El dataset Supervisely tiene múltiples subdirectorios (ds1, ds2, etc.)
-    dataset_dirs = [d for d in os.listdir(data_dir) if d.startswith('ds') and os.path.isdir(os.path.join(data_dir, d))]
+    # Verificar archivos de anotaciones
+    train_ann_file = os.path.join(coco_root, 'annotations', 'person_keypoints_train2017.json')
+    val_ann_file = os.path.join(coco_root, 'annotations', 'person_keypoints_val2017.json')
 
-    if not dataset_dirs:
-        logger.error("Directorios de dataset no encontrados en persons/project/")
-        logger.error("Esperados: ds1, ds2, ds3, etc.")
+    if not os.path.exists(train_ann_file):
+        logger.error(f"Archivo de anotaciones de entrenamiento no encontrado: {train_ann_file}")
         return
 
-    logger.info(f"Encontrados {len(dataset_dirs)} subdirectorios de dataset: {dataset_dirs}")
-
-    # Recopilar todas las imágenes y anotaciones de todos los subdirectorios
-    all_images_info = []
-
-    for ds_dir in dataset_dirs:
-        ds_path = os.path.join(data_dir, ds_dir)
-        img_dir = os.path.join(ds_path, 'img')
-        ann_dir = os.path.join(ds_path, 'ann')
-
-        logger.info(f"Procesando directorio: {ds_dir}")
-
-        if not os.path.exists(img_dir):
-            logger.warning(f"Directorio de imágenes no encontrado: {img_dir}")
-            continue
-
-        if not os.path.exists(ann_dir):
-            logger.warning(f"Directorio de anotaciones no encontrado: {ann_dir}")
-            continue
-
-        # Obtener archivos de imágenes
-        img_files = [f for f in os.listdir(img_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-        ann_files = [f for f in os.listdir(ann_dir) if f.lower().endswith('.json')]
-
-        logger.info(f"  - Imágenes encontradas: {len(img_files)}")
-        logger.info(f"  - Anotaciones encontradas: {len(ann_files)}")
-
-        # Crear mapping de nombres base
-        paired_count = 0
-        for img_file in img_files:
-            img_path = os.path.join(img_dir, img_file)
-
-            # Probar diferentes patrones de nombres para las anotaciones
-            base_name = os.path.splitext(img_file)[0]
-            possible_ann_names = [
-                f"{base_name}.json",
-                f"{base_name}.jpg.json",
-                f"{base_name}.png.json",
-                f"{base_name}.jpeg.json"
-            ]
-
-            ann_path = None
-            for ann_name in possible_ann_names:
-                potential_ann_path = os.path.join(ann_dir, ann_name)
-                if os.path.exists(potential_ann_path):
-                    ann_path = potential_ann_path
-                    break
-
-            if ann_path:
-                all_images_info.append({
-                    'image_path': img_path,
-                    'annotation_path': ann_path,
-                    'dataset': ds_dir,
-                    'image_name': img_file
-                })
-                paired_count += 1
-            else:
-                logger.debug(f"No se encontró anotación para: {img_file}")
-
-        logger.info(f"  - Pares válidos creados: {paired_count}")
-
-    if not all_images_info:
-        logger.error("No se encontraron pares válidos de imagen/anotación")
+    if not os.path.exists(val_ann_file):
+        logger.error(f"Archivo de anotaciones de validación no encontrado: {val_ann_file}")
         return
 
-    logger.info(f"Total de imágenes emparejadas encontradas: {len(all_images_info)}")
+    # Verificar directorios de imágenes
+    train_img_dir = os.path.join(coco_root, 'train2017')
+    val_img_dir = os.path.join(coco_root, 'val2017')
+
+    if not os.path.exists(train_img_dir):
+        logger.error(f"Directorio de imágenes de entrenamiento no encontrado: {train_img_dir}")
+        return
+
+    if not os.path.exists(val_img_dir):
+        logger.error(f"Directorio de imágenes de validación no encontrado: {val_img_dir}")
+        return
+
+    logger.info("Estructura COCO verificada correctamente")
 
     # Preparar transforms
     train_transform, val_transform = get_transforms()
 
-    # Split train/validation (80/20)
-    train_size = int(0.8 * len(all_images_info))
-    val_size = len(all_images_info) - train_size
-
-    # Crear índices aleatorios para el split
-    indices = list(range(len(all_images_info)))
-    np.random.seed(42)  # Para reproducibilidad
-    np.random.shuffle(indices)
-
-    train_indices = indices[:train_size]
-    val_indices = indices[train_size:]
-
-    # Crear subsets
-    train_images_info = [all_images_info[i] for i in train_indices]
-    val_images_info = [all_images_info[i] for i in val_indices]
-
-    # Crear datasets con transforms (store_metadata=False para entrenamiento)
-    train_dataset = SuperviselyDataset(
-        images_info_list=train_images_info,
+    # CAMBIO PRINCIPAL: Usar COCOPersonDataset en lugar de SuperviselyDataset
+    logger.info("Cargando dataset COCO para entrenamiento...")
+    train_dataset = COCOPersonDataset(
+        coco_root=coco_root,
+        annotation_file=train_ann_file,
         transform=train_transform,
         image_size=config['image_size'],
-        store_metadata=False  # No necesitamos metadatos durante entrenamiento
+        store_metadata=False
     )
 
-    val_dataset = SuperviselyDataset(
-        images_info_list=val_images_info,
+    logger.info("Cargando dataset COCO para validación...")
+    val_dataset = COCOPersonDataset(
+        coco_root=coco_root,
+        annotation_file=val_ann_file,
         transform=val_transform,
         image_size=config['image_size'],
-        store_metadata=False  # No necesitamos metadatos durante validación
+        store_metadata=False
     )
 
     # Crear data loaders
@@ -1303,7 +1234,7 @@ def main():
         drop_last=True
     )
 
-    logger.info(f"Dataset cargado: {len(train_dataset)} train, {len(val_dataset)} val")
+    logger.info(f"Dataset COCO cargado: {len(train_dataset)} train, {len(val_dataset)} val")
 
     # Crear modelo
     logger.info("Inicializando modelo U-Net Autoencoder...")
@@ -1390,6 +1321,51 @@ def test_model_forward():
         return False
 
 
+def test_coco_dataset():
+    """
+    Función de prueba para verificar que el dataset COCO se carga correctamente.
+    """
+    print("Probando carga del dataset COCO...")
+
+    coco_root = 'COCO'
+    train_ann_file = os.path.join(coco_root, 'annotations', 'person_keypoints_train2017.json')
+
+    if not os.path.exists(train_ann_file):
+        print(f"✗ Archivo de anotaciones no encontrado: {train_ann_file}")
+        return False
+
+    try:
+        # Crear dataset de prueba con solo unas pocas imágenes
+        dataset = COCOPersonDataset(
+            coco_root=coco_root,
+            annotation_file=train_ann_file,
+            transform=None,
+            image_size=384,
+            store_metadata=False
+        )
+
+        print(f"✓ Dataset COCO cargado exitosamente")
+        print(f"  Total de imágenes con personas: {len(dataset)}")
+
+        if len(dataset) > 0:
+            # Probar cargar una muestra
+            sample = dataset[0]
+            image, target = sample
+
+            print(f"  ✓ Muestra cargada exitosamente")
+            print(f"    Image shape: {image.shape}")
+            print(f"    Target shape: {target.shape}")
+
+            return True
+        else:
+            print("✗ Dataset vacío")
+            return False
+
+    except Exception as e:
+        print(f"✗ Error cargando dataset COCO: {e}")
+        return False
+
+
 def test_image_processing():
     """
     Función de prueba para verificar el procesamiento de imágenes.
@@ -1452,7 +1428,7 @@ def test_image_processing():
 
 
 if __name__ == "__main__":
-    print("=== PRUEBAS DEL SISTEMA U-NET AUTOENCODER ===\n")
+    print("=== PRUEBAS DEL SISTEMA U-NET AUTOENCODER CON COCO ===\n")
 
     # Probar modelo
     model_test = test_model_forward()
@@ -1460,7 +1436,10 @@ if __name__ == "__main__":
     # Probar procesamiento de imágenes
     processing_test = test_image_processing()
 
-    if model_test and processing_test:
+    # Probar dataset COCO
+    coco_test = test_coco_dataset()
+
+    if model_test and processing_test and coco_test:
         print("\n✅ Todas las pruebas pasaron. Procediendo con el entrenamiento...\n")
 
         # Para entrenar el modelo
@@ -1470,3 +1449,311 @@ if __name__ == "__main__":
         # demo_inference()
     else:
         print("\n❌ Algunas pruebas fallaron. Revisar la implementación.")
+        print("\nDetalles de las pruebas:")
+        print(f"  - Modelo: {'✅' if model_test else '❌'}")
+        print(f"  - Procesamiento: {'✅' if processing_test else '❌'}")
+        print(f"  - Dataset COCO: {'✅' if coco_test else '❌'}")
+
+        if not coco_test:
+            print("\n📋 Para resolver problemas con COCO:")
+            print("  1. Verificar que existe el directorio 'COCO'")
+            print("  2. Verificar que existe 'COCO/annotations/person_keypoints_train2017.json'")
+            print("  3. Verificar que existe 'COCO/train2017/' con imágenes .jpg")
+            print("  4. Verificar que existe 'COCO/val2017/' con imágenes .jpg")
+
+
+def quick_coco_test():
+    """
+    Prueba rápida para verificar estructura COCO sin cargar todo el dataset.
+    """
+    print("=== VERIFICACIÓN RÁPIDA DE ESTRUCTURA COCO ===\n")
+
+    coco_root = 'COCO'
+    issues = []
+
+    # Verificar directorio principal
+    if not os.path.exists(coco_root):
+        issues.append(f"❌ Directorio principal no encontrado: {coco_root}")
+        print(f"❌ Directorio principal no encontrado: {coco_root}")
+        return False
+    else:
+        print(f"✅ Directorio principal encontrado: {coco_root}")
+
+    # Verificar annotations
+    ann_dir = os.path.join(coco_root, 'annotations')
+    if not os.path.exists(ann_dir):
+        issues.append(f"❌ Directorio de anotaciones no encontrado: {ann_dir}")
+    else:
+        print(f"✅ Directorio de anotaciones encontrado: {ann_dir}")
+
+        # Verificar archivos específicos
+        train_ann = os.path.join(ann_dir, 'person_keypoints_train2017.json')
+        val_ann = os.path.join(ann_dir, 'person_keypoints_val2017.json')
+
+        if os.path.exists(train_ann):
+            size_mb = os.path.getsize(train_ann) / (1024 * 1024)
+            print(f"✅ Anotaciones de entrenamiento encontradas: {train_ann} ({size_mb:.1f} MB)")
+        else:
+            issues.append(f"❌ Anotaciones de entrenamiento no encontradas: {train_ann}")
+
+        if os.path.exists(val_ann):
+            size_mb = os.path.getsize(val_ann) / (1024 * 1024)
+            print(f"✅ Anotaciones de validación encontradas: {val_ann} ({size_mb:.1f} MB)")
+        else:
+            issues.append(f"❌ Anotaciones de validación no encontradas: {val_ann}")
+
+    # Verificar directorios de imágenes
+    train_dir = os.path.join(coco_root, 'train2017')
+    val_dir = os.path.join(coco_root, 'val2017')
+
+    if os.path.exists(train_dir):
+        train_count = len([f for f in os.listdir(train_dir) if f.endswith('.jpg')])
+        print(f"✅ Directorio train2017 encontrado con {train_count:,} imágenes")
+    else:
+        issues.append(f"❌ Directorio train2017 no encontrado: {train_dir}")
+
+    if os.path.exists(val_dir):
+        val_count = len([f for f in os.listdir(val_dir) if f.endswith('.jpg')])
+        print(f"✅ Directorio val2017 encontrado con {val_count:,} imágenes")
+    else:
+        issues.append(f"❌ Directorio val2017 no encontrado: {val_dir}")
+
+    # Resumen
+    if issues:
+        print(f"\n❌ Se encontraron {len(issues)} problemas:")
+        for issue in issues:
+            print(f"   {issue}")
+        print("\n📋 Instrucciones para resolver:")
+        print("   1. Asegúrate de que el directorio COCO esté en la ubicación correcta")
+        print("   2. Descomprime los archivos ZIP si es necesario:")
+        print("      - annotations_trainval2017.zip -> COCO/annotations/")
+        print("      - train2017.zip -> COCO/train2017/")
+        print("      - val2017.zip -> COCO/val2017/")
+        return False
+    else:
+        print(f"\n✅ Estructura COCO verificada correctamente!")
+        print(f"   ✅ Todos los archivos necesarios están presentes")
+        print(f"   ✅ Listo para entrenar el modelo")
+        return True
+
+
+def analyze_coco_annotations():
+    """
+    Analiza las anotaciones COCO para entender mejor el dataset.
+    """
+    print("=== ANÁLISIS DE ANOTACIONES COCO ===\n")
+
+    coco_root = 'COCO'
+    train_ann_file = os.path.join(coco_root, 'annotations', 'person_keypoints_train2017.json')
+
+    if not os.path.exists(train_ann_file):
+        print(f"❌ Archivo de anotaciones no encontrado: {train_ann_file}")
+        return
+
+    try:
+        print("📊 Cargando anotaciones...")
+        with open(train_ann_file, 'r') as f:
+            coco_data = json.load(f)
+
+        # Estadísticas básicas
+        total_images = len(coco_data['images'])
+        total_annotations = len(coco_data['annotations'])
+
+        print(f"📈 Estadísticas generales:")
+        print(f"   - Total de imágenes: {total_images:,}")
+        print(f"   - Total de anotaciones: {total_annotations:,}")
+
+        # Filtrar solo personas con keypoints
+        person_annotations = [ann for ann in coco_data['annotations']
+                              if 'keypoints' in ann and ann.get('area', 0) > 500]
+
+        print(f"   - Anotaciones de personas válidas: {len(person_annotations):,}")
+
+        # Agrupar por imagen
+        image_to_annotations = {}
+        for ann in person_annotations:
+            img_id = ann['image_id']
+            if img_id not in image_to_annotations:
+                image_to_annotations[img_id] = []
+            image_to_annotations[img_id].append(ann)
+
+        valid_images = len(image_to_annotations)
+        print(f"   - Imágenes con personas válidas: {valid_images:,}")
+
+        # Distribución de personas por imagen
+        persons_per_image = [len(anns) for anns in image_to_annotations.values()]
+        avg_persons = np.mean(persons_per_image)
+        max_persons = max(persons_per_image)
+
+        print(f"   - Promedio de personas por imagen: {avg_persons:.2f}")
+        print(f"   - Máximo de personas en una imagen: {max_persons}")
+
+        # Distribución de tamaños
+        areas = [ann['area'] for ann in person_annotations]
+        print(f"📏 Distribución de tamaños (área):")
+        print(f"   - Área promedio: {np.mean(areas):.0f} píxeles²")
+        print(f"   - Área mínima: {np.min(areas):.0f} píxeles²")
+        print(f"   - Área máxima: {np.max(areas):.0f} píxeles²")
+        print(f"   - Mediana: {np.median(areas):.0f} píxeles²")
+
+        print(f"\n✅ Análisis completado. Dataset listo para entrenamiento.")
+
+    except Exception as e:
+        print(f"❌ Error analizando anotaciones: {e}")
+
+
+def create_sample_batch():
+    """
+    Crea un batch de muestra para verificar que todo funciona.
+    """
+    print("=== CREANDO BATCH DE MUESTRA ===\n")
+
+    coco_root = 'COCO'
+    train_ann_file = os.path.join(coco_root, 'annotations', 'person_keypoints_train2017.json')
+
+    try:
+        # Crear dataset pequeño
+        print("📊 Creando dataset de muestra...")
+        dataset = COCOPersonDataset(
+            coco_root=coco_root,
+            annotation_file=train_ann_file,
+            transform=None,
+            image_size=384,
+            store_metadata=False
+        )
+
+        if len(dataset) == 0:
+            print("❌ Dataset vacío")
+            return False
+
+        # Crear dataloader
+        loader = DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0)
+
+        print(f"✅ Dataset creado con {len(dataset)} imágenes")
+        print("🔄 Cargando primer batch...")
+
+        # Cargar primer batch
+        for batch_idx, (images, targets) in enumerate(loader):
+            print(f"✅ Batch cargado exitosamente:")
+            print(f"   - Imágenes shape: {images.shape}")
+            print(f"   - Targets shape: {targets.shape}")
+            print(f"   - Tipo de datos: {images.dtype}, {targets.dtype}")
+            print(f"   - Rango imágenes: [{images.min():.3f}, {images.max():.3f}]")
+            print(f"   - Rango targets: [{targets.min():.3f}, {targets.max():.3f}]")
+
+            # Verificar canales
+            rgb_channels = targets[:, :3, :, :]
+            alpha_channel = targets[:, 3:4, :, :]
+            print(f"   - RGB channels shape: {rgb_channels.shape}")
+            print(f"   - Alpha channel shape: {alpha_channel.shape}")
+            print(f"   - Alpha channel range: [{alpha_channel.min():.3f}, {alpha_channel.max():.3f}]")
+
+            # Solo procesar primer batch
+            break
+
+        print("✅ Verificación de batch completada exitosamente")
+        return True
+
+    except Exception as e:
+        print(f"❌ Error creando batch de muestra: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+# Agregar función de utilidad para verificación completa
+def full_verification():
+    """
+    Verificación completa del sistema antes del entrenamiento.
+    """
+    print("🔍 VERIFICACIÓN COMPLETA DEL SISTEMA")
+    print("=" * 50)
+
+    # Verificaciones paso a paso
+    steps = [
+        ("Estructura COCO", quick_coco_test),
+        ("Forward pass del modelo", test_model_forward),
+        ("Procesamiento de imágenes", test_image_processing),
+        ("Análisis de anotaciones", analyze_coco_annotations),
+        ("Batch de muestra", create_sample_batch),
+    ]
+
+    results = {}
+
+    for step_name, step_func in steps:
+        print(f"\n📋 {step_name}...")
+        try:
+            if step_name == "Análisis de anotaciones":
+                step_func()  # Esta función no retorna bool
+                results[step_name] = True
+            else:
+                results[step_name] = step_func()
+        except Exception as e:
+            print(f"❌ Error en {step_name}: {e}")
+            results[step_name] = False
+
+    # Resumen final
+    print(f"\n" + "=" * 50)
+    print("📋 RESUMEN DE VERIFICACIONES:")
+
+    all_passed = True
+    for step_name, passed in results.items():
+        status = "✅" if passed else "❌"
+        print(f"   {status} {step_name}")
+        if not passed:
+            all_passed = False
+
+    if all_passed:
+        print(f"\n🎉 ¡TODAS LAS VERIFICACIONES EXITOSAS!")
+        print(f"🚀 El sistema está listo para entrenar")
+        return True
+    else:
+        print(f"\n⚠️  Algunas verificaciones fallaron")
+        print(f"🔧 Revisa los errores antes de continuar")
+        return False
+
+
+# Función principal alternativa para verificación
+def main_verify():
+    """
+    Modo de verificación sin entrenamiento.
+    """
+    if full_verification():
+        response = input("\n¿Proceder con el entrenamiento? (y/n): ")
+        if response.lower() in ['y', 'yes', 'sí', 's']:
+            main()
+        else:
+            print("Entrenamiento cancelado por el usuario.")
+    else:
+        print("Verificación fallida. Entrenamiento no iniciado.")
+
+
+if __name__ == "__main__":
+    import sys
+
+    # Permitir diferentes modos de ejecución
+    if len(sys.argv) > 1:
+        mode = sys.argv[1].lower()
+
+        if mode == 'verify':
+            print("🔍 MODO VERIFICACIÓN")
+            full_verification()
+        elif mode == 'quick':
+            print("⚡ VERIFICACIÓN RÁPIDA")
+            quick_coco_test()
+        elif mode == 'analyze':
+            print("📊 ANÁLISIS DE DATASET")
+            analyze_coco_annotations()
+        elif mode == 'batch':
+            print("🔄 PRUEBA DE BATCH")
+            create_sample_batch()
+        elif mode == 'train':
+            print("🚀 ENTRENAMIENTO DIRECTO")
+            main()
+        else:
+            print(f"❌ Modo no reconocido: {mode}")
+            print("Modos disponibles: verify, quick, analyze, batch, train")
+    else:
+        # Modo por defecto: verificación completa + opción de entrenar
+        print("🎯 MODO AUTOMÁTICO: Verificación + Entrenamiento")
+        main_verify()
