@@ -333,7 +333,7 @@ class BackgroundRemoverDebug:
 
         try:
             # Cargar modelo entrenado
-            checkpoint = torch.load(model_path, map_location=device)
+            checkpoint = torch.load(model_path, map_location=device, weights_only=False)
             self.model.load_state_dict(checkpoint['model_state_dict'])
             self.model.to(device)
             self.model.eval()
@@ -405,8 +405,28 @@ class BackgroundRemoverDebug:
 
             # Crear imagen RGBA final
             result_final = np.zeros((original_size[0], original_size[1], 4), dtype=np.float32)
-            result_final[:, :, :3] = rgb_restored
-            result_final[:, :, 3] = alpha_restored
+            # result_final[:, :, :3] = rgb_restored
+            # result_final[:, :, 3] = alpha_restored
+            threshold = 0.4
+            person_mask = alpha_restored > threshold
+
+            # Usar imagen original donde hay persona detectada
+            original_normalized = image_rgb.astype(np.float32) / 255.0
+            rgb_enhanced = np.where(
+                person_mask[..., np.newaxis],
+                original_normalized,  # Colores originales
+                rgb_restored  # RGB del modelo
+            )
+
+            # Suavizar máscara para transiciones naturales
+            alpha_smooth = cv2.bilateralFilter(
+                (alpha_restored * 255).astype(np.uint8),
+                5, 50, 50
+            ).astype(np.float32) / 255.0
+
+            result_final[:, :, :3] = rgb_enhanced
+            result_final[:, :, 3] = alpha_smooth
+
             result_final = (result_final * 255).astype(np.uint8)
 
             # Retornar todas las etapas
@@ -478,7 +498,7 @@ def display_image_comparison(images_dict, stage_names, cols_per_row=3):
                         else:
                             pil_image = image_data
 
-                        st.image(pil_image, caption=stage_name, use_column_width=True)
+                        st.image(pil_image, caption=stage_name, use_container_width=True)
 
                         # Mostrar información adicional
                         if isinstance(image_data, np.ndarray):
@@ -667,11 +687,11 @@ def main():
 
                 with comp_col1:
                     st.subheader("📷 Imagen Original")
-                    st.image(results['original_image'], use_column_width=True)
+                    st.image(results['original_image'], use_container_width=True)
 
                 with comp_col2:
                     st.subheader("✨ Resultado Final")
-                    st.image(results['result_final'], use_column_width=True)
+                    st.image(results['result_final'], use_container_width=False)
 
                 # Opciones de descarga
                 st.header("📥 Descargar Resultados")
