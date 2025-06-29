@@ -1,6 +1,9 @@
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
 import numpy as np
 import os
 import logging
@@ -16,12 +19,13 @@ class Trainer:
     Clase principal para el entrenamiento del modelo de segmentación.
     """
 
-    def __init__(self, model, train_loader, val_loader, device, config):
+    def __init__(self, model, train_loader, val_loader, device, config, rank=0):
         self.model = model.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.device = device
         self.config = config
+        self.rank = rank
 
         # Inicializar componentes
         self.optimizer = optim.Adam(model.parameters(), lr=config['learning_rate'], weight_decay=config['weight_decay'])
@@ -48,30 +52,34 @@ class Trainer:
 
     def _setup_logger(self):
         """Configura el logger para el entrenamiento."""
-        os.makedirs('logs', exist_ok=True)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        log_filename = f'logs/segmentation_{timestamp}.log'
-
         logger = logging.getLogger('segmentation')
-        logger.setLevel(logging.INFO)
+        if self.rank == 0:
+            os.makedirs('logs', exist_ok=True)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            log_filename = f'logs/segmentation_{timestamp}.log'
+            logger.setLevel(logging.INFO)
 
-        # Evitar duplicar handlers
-        if not logger.handlers:
-            handler = logging.FileHandler(log_filename)
-            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-            handler.setFormatter(formatter)
-            logger.addHandler(handler)
+            # Evitar duplicar handlers
+            if not logger.handlers:
+                handler = logging.FileHandler(log_filename)
+                formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+                handler.setFormatter(formatter)
+                logger.addHandler(handler)
 
-            # También log a consola
-            console_handler = logging.StreamHandler()
-            console_handler.setFormatter(formatter)
-            logger.addHandler(console_handler)
+                # También log a consola
+                console_handler = logging.StreamHandler()
+                console_handler.setFormatter(formatter)
+                logger.addHandler(console_handler)
+        else:
+            logger.setLevel(logging.CRITICAL)  # Solo el rank 0 logea
 
         return logger
 
     def train_epoch(self):
         """Entrena una época."""
         self.model.train()
+        if hasattr(self.train_loader, 'sampler') and hasattr(self.train_loader.sampler, 'set_epoch'):
+            self.train_loader.sampler.set_epoch(self.epoch)  # Sincronizar shuffling
         epoch_losses = []
         epoch_ious = []
         epoch_dices = []
@@ -134,13 +142,14 @@ class Trainer:
                         epoch_ious.append(iou.item())
                         epoch_dices.append(dice.item())
 
-                # Log cada N batches
-                if batch_idx % 10 == 0 and len(epoch_losses) > 0:
+                # Log cada N batches (solo rank 0)
+                if self.rank == 0 and batch_idx % 10 == 0 and len(epoch_losses) > 0:
                     self.logger.info(f'Batch {batch_idx}/{len(self.train_loader)}: '
                                      f'Loss: {total_loss.item():.4f}, IoU: {iou.item():.4f}, Dice: {dice.item():.4f}')
 
             except Exception as e:
-                self.logger.error(f"Error in batch {batch_idx}: {str(e)}")
+                if self.rank == 0:
+                    self.logger.error(f"Error in batch {batch_idx}: {str(e)}")
                 continue
 
         # Retornar promedios válidos
@@ -202,7 +211,8 @@ class Trainer:
                         epoch_dices.append(dice.item())
 
                 except Exception as e:
-                    self.logger.error(f"Error in validation batch {batch_idx}: {str(e)}")
+                    if self.rank == 0:
+                        self.logger.error(f"Error in validation batch {batch_idx}: {str(e)}")
                     continue
 
         # Retornar promedios válidos
@@ -213,11 +223,14 @@ class Trainer:
 
     def train(self, num_epochs):
         """Entrenamiento principal."""
-        self.logger.info("Iniciando entrenamiento...")
-        self.logger.info(f"Configuración: {self.config}")
+        if self.rank == 0:
+            self.logger.info("Iniciando entrenamiento distribuido...")
+            self.logger.info(f"Configuración: {self.config}")
 
         for epoch in range(num_epochs):
-            self.logger.info(f"\nÉpoca {epoch + 1}/{num_epochs}")
+            self.epoch = epoch
+            if self.rank == 0:
+                self.logger.info(f"\nÉpoca {epoch + 1}/{num_epochs}")
 
             # Entrenar
             train_loss, train_iou, train_dice = self.train_epoch()
@@ -230,42 +243,47 @@ class Trainer:
 
             # Verificar si los valores son válidos antes de guardar
             if not (np.isnan(train_loss) or np.isnan(val_loss)):
-                # Guardar historial
-                self.train_history['loss'].append(train_loss)
-                self.train_history['iou'].append(train_iou)
-                self.train_history['dice'].append(train_dice)
+                if self.rank == 0:
+                    # Guardar historial
+                    self.train_history['loss'].append(train_loss)
+                    self.train_history['iou'].append(train_iou)
+                    self.train_history['dice'].append(train_dice)
 
-                self.val_history['loss'].append(val_loss)
-                self.val_history['iou'].append(val_iou)
-                self.val_history['dice'].append(val_dice)
+                    self.val_history['loss'].append(val_loss)
+                    self.val_history['iou'].append(val_iou)
+                    self.val_history['dice'].append(val_dice)
 
-                # Log resultados
-                self.logger.info(f"Train - Loss: {train_loss:.4f}, IoU: {train_iou:.4f}, Dice: {train_dice:.4f}")
-                self.logger.info(f"Val   - Loss: {val_loss:.4f}, IoU: {val_iou:.4f}, Dice: {val_dice:.4f}")
+                    # Log resultados
+                    self.logger.info(f"Train - Loss: {train_loss:.4f}, IoU: {train_iou:.4f}, Dice: {train_dice:.4f}")
+                    self.logger.info(f"Val   - Loss: {val_loss:.4f}, IoU: {val_iou:.4f}, Dice: {val_dice:.4f}")
 
-                # Guardar checkpoint
-                if self.checkpoint_manager:
-                    is_best = val_iou > self.checkpoint_manager.best_iou
-                    if is_best:
-                        self.checkpoint_manager.best_iou = val_iou
-                        self.checkpoint_manager.best_loss = val_loss
+                    # Guardar checkpoint (solo rank 0)
+                    if self.checkpoint_manager:
+                        is_best = val_iou > self.checkpoint_manager.best_iou
+                        if is_best:
+                            self.checkpoint_manager.best_iou = val_iou
+                            self.checkpoint_manager.best_loss = val_loss
 
-                    metrics = {
-                        'train_loss': train_loss, 'train_iou': train_iou, 'train_dice': train_dice,
-                        'val_loss': val_loss, 'val_iou': val_iou, 'val_dice': val_dice
-                    }
+                        metrics = {
+                            'train_loss': train_loss, 'train_iou': train_iou, 'train_dice': train_dice,
+                            'val_loss': val_loss, 'val_iou': val_iou, 'val_dice': val_dice
+                        }
 
-                    self.checkpoint_manager.save_checkpoint(
-                        self.model, self.optimizer, epoch, val_loss, metrics, is_best, 'segmentation'
-                    )
+                        # Guardar el state_dict del modelo subyacente si es DDP
+                        model_to_save = self.model.module if hasattr(self.model, 'module') else self.model
+                        self.checkpoint_manager.save_checkpoint(
+                            model_to_save, self.optimizer, epoch, val_loss, metrics, is_best, 'segmentation'
+                        )
 
-                    if is_best:
-                        self.logger.info(f"¡Nuevo mejor modelo! IoU: {val_iou:.4f}")
+                        if is_best:
+                            self.logger.info(f"¡Nuevo mejor modelo! IoU: {val_iou:.4f}")
             else:
-                self.logger.warning(f"Época {epoch + 1} saltada debido a valores NaN")
+                if self.rank == 0:
+                    self.logger.warning(f"Época {epoch + 1} saltada debido a valores NaN")
 
-        self.logger.info("Entrenamiento completado!")
-        self.save_training_plots()
+        if self.rank == 0:
+            self.logger.info("Entrenamiento completado!")
+            self.save_training_plots()
 
     def save_training_plots(self):
         """Guarda gráficas del entrenamiento."""
@@ -312,7 +330,23 @@ class Trainer:
 def train_segmentation(config=None):
     """
     Función principal para entrenar el modelo de segmentación.
+    Soporta entrenamiento distribuido con DDP.
     """
+    # --- INICIO: Configuración para DDP ---
+    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+        dist.init_process_group(backend='nccl')
+        rank = int(os.environ['RANK'])
+        world_size = int(os.environ['WORLD_SIZE'])
+        device_id = int(os.environ['LOCAL_RANK'])
+        torch.cuda.set_device(device_id)
+        is_distributed = True
+    else:
+        rank = 0
+        world_size = 1
+        device_id = 0
+        is_distributed = False
+    # --- FIN: Configuración para DDP ---
+
     # Configuración por defecto si no se proporciona
     if config is None:
         config = {
@@ -321,23 +355,26 @@ def train_segmentation(config=None):
             'weight_decay': 1e-6,
             'num_epochs': 100,
             'image_size': 384,
-            'device': 'cuda' if torch.cuda.is_available() else 'cpu',
+            'device': f'cuda:{device_id}' if torch.cuda.is_available() else 'cpu',
             'num_workers': 8,
             'pin_memory': True,
         }
+    else:
+        config['device'] = f'cuda:{device_id}' if torch.cuda.is_available() else 'cpu'
 
-    # Setup logging
+    # Setup logging (solo rank 0)
     logger = logging.getLogger('segmentation_main')
-    logger.setLevel(logging.INFO)
-
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
-    logger.info("Iniciando entrenamiento de modelo de segmentación")
-    logger.info(f"Dispositivo: {config['device']}")
+    if rank == 0:
+        logger.setLevel(logging.INFO)
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+        logger.info("Iniciando entrenamiento de modelo de segmentación")
+        logger.info(f"Dispositivo: {config['device']}, World Size: {world_size}")
+    else:
+        logger.setLevel(logging.CRITICAL)
 
     # Verificar dataset COCO
     coco_root = 'COCO'
@@ -393,14 +430,24 @@ def train_segmentation(config=None):
         logger.error("Módulo datasets no disponible")
         return False
 
-    # Crear data loaders
+    # --- INICIO: Crear data loaders con soporte DDP ---
+    if is_distributed:
+        train_sampler = DistributedSampler(train_dataset, num_replicas=world_size, rank=rank)
+        val_sampler = DistributedSampler(val_dataset, num_replicas=world_size, rank=rank)
+        shuffle = False  # DistributedSampler maneja el shuffle
+    else:
+        train_sampler = None
+        val_sampler = None
+        shuffle = True
+    
     train_loader = DataLoader(
         train_dataset,
         batch_size=config['batch_size'],
-        shuffle=True,
+        shuffle=shuffle,
         num_workers=config['num_workers'],
         pin_memory=config['pin_memory'],
-        drop_last=True
+        drop_last=True,
+        sampler=train_sampler
     )
 
     val_loader = DataLoader(
@@ -409,26 +456,37 @@ def train_segmentation(config=None):
         shuffle=False,
         num_workers=config['num_workers'],
         pin_memory=config['pin_memory'],
-        drop_last=True
+        drop_last=True,
+        sampler=val_sampler
     )
+    # --- FIN: Crear data loaders con soporte DDP ---
 
-    logger.info(f"Dataset COCO cargado: {len(train_dataset)} train, {len(val_dataset)} val")
+    if rank == 0:
+        logger.info(f"Dataset COCO cargado: {len(train_dataset)} train, {len(val_dataset)} val")
 
     # Crear modelo
     try:
         from models import UNetAutoencoder
 
-        logger.info("Inicializando modelo U-Net Autoencoder...")
-        model = UNetAutoencoder(pretrained=True, use_attention=True)
+        if rank == 0:
+            logger.info("Inicializando modelo U-Net Autoencoder...")
+        model = UNetAutoencoder(pretrained=True, use_attention=True).to(config['device'])
     except ImportError:
-        logger.error("Módulo models no disponible")
+        if rank == 0:
+            logger.error("Módulo models no disponible")
         return False
 
-    # Contar parámetros
-    total_params = sum(p.numel() for p in model.parameters())
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    logger.info(f"Parámetros totales: {total_params:,}")
-    logger.info(f"Parámetros entrenables: {trainable_params:,}")
+    # --- INICIO: Envolver modelo con DDP ---
+    if is_distributed:
+        model = DDP(model, device_ids=[device_id])
+    # --- FIN: Envolver modelo con DDP ---
+
+    # Contar parámetros (solo rank 0)
+    if rank == 0:
+        total_params = sum(p.numel() for p in model.parameters())
+        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        logger.info(f"Parámetros totales: {total_params:,}")
+        logger.info(f"Parámetros entrenables: {trainable_params:,}")
 
     # Crear trainer
     trainer = Trainer(
@@ -436,36 +494,49 @@ def train_segmentation(config=None):
         train_loader=train_loader,
         val_loader=val_loader,
         device=config['device'],
-        config=config
+        config=config,
+        rank=rank
     )
 
     # Entrenar modelo
     trainer.train(config['num_epochs'])
 
-    logger.info("Entrenamiento completado exitosamente!")
+    if rank == 0:
+        logger.info("Entrenamiento completado exitosamente!")
+    
+    # --- INICIO: Cleanup DDP ---
+    if is_distributed:
+        dist.destroy_process_group()
+    # --- FIN: Cleanup DDP ---
+    
     return True
 
 
 if __name__ == "__main__":
-    # Prueba del módulo
-    print("=== PRUEBA DEL MÓDULO DE ENTRENAMIENTO ===")
-
-    # Configuración de prueba
-    test_config = {
-        'batch_size': 2,
-        'learning_rate': 1e-4,
-        'weight_decay': 1e-6,
-        'num_epochs': 2,
-        'image_size': 256,
-        'device': 'cuda' if torch.cuda.is_available() else 'cpu',
-        'num_workers': 0,
-        'pin_memory': False,
-    }
-
-    print("Iniciando entrenamiento de prueba...")
-    success = train_segmentation(test_config)
-
-    if success:
-        print("✅ Prueba de entrenamiento completada exitosamente!")
+    # Comprobamos si el script se está ejecutando con torchrun
+    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+        # Ejecutar entrenamiento distribuido
+        train_segmentation()
     else:
-        print("❌ Error en la prueba de entrenamiento")
+        # Prueba del módulo
+        print("=== PRUEBA DEL MÓDULO DE ENTRENAMIENTO ===")
+
+        # Configuración de prueba
+        test_config = {
+            'batch_size': 2,
+            'learning_rate': 1e-4,
+            'weight_decay': 1e-6,
+            'num_epochs': 2,
+            'image_size': 256,
+            'device': 'cuda' if torch.cuda.is_available() else 'cpu',
+            'num_workers': 0,
+            'pin_memory': False,
+        }
+
+        print("Iniciando entrenamiento de prueba...")
+        success = train_segmentation(test_config)
+
+        if success:
+            print("✅ Prueba de entrenamiento completada exitosamente!")
+        else:
+            print("❌ Error en la prueba de entrenamiento")

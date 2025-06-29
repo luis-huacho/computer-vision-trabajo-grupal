@@ -81,25 +81,101 @@ def print_system_status():
 # ============================================================================
 
 def train_segmentation():
-    """Ejecuta el entrenamiento de segmentación."""
+    """Ejecuta el entrenamiento de segmentación usando multi-GPU si está disponible."""
     try:
-        from trainer import train_segmentation as train_seg
-        from settings import get_segmentation_config
-
-        print("🔄 ENTRENAMIENTO DE SEGMENTACIÓN")
+        import torch
+        import subprocess
+        import os
+        
+        print("🔄 ENTRENAMIENTO DE SEGMENTACIÓN (MULTI-GPU)")
         print("=" * 40)
-
-        config = get_segmentation_config()
-        success = train_seg(config)
-
-        if success:
-            print("✅ Entrenamiento completado exitosamente!")
+        
+        # Verificar disponibilidad de GPUs
+        if not torch.cuda.is_available():
+            print("❌ CUDA no disponible. Usando CPU (no recomendado)...")
+            # Fallback a entrenamiento tradicional
+            try:
+                from trainer import train_segmentation as train_seg
+                from settings import get_segmentation_config
+                config = get_segmentation_config()
+                success = train_seg(config)
+                if success:
+                    print("✅ Entrenamiento completado exitosamente!")
+                else:
+                    print("❌ Error en el entrenamiento")
+            except ImportError as e:
+                print(f"❌ Módulos necesarios no disponibles: {e}")
+            return
+            
+        gpu_count = torch.cuda.device_count()
+        print(f"🔍 GPUs detectadas: {gpu_count}")
+        
+        # Verificar si trainer.py soporta DDP
+        if not os.path.exists("trainer.py"):
+            print("❌ trainer.py no encontrado")
+            return
+            
+        # Leer trainer.py para verificar si tiene soporte DDP
+        with open("trainer.py", "r") as f:
+            trainer_content = f.read()
+            
+        has_ddp_support = ("torch.distributed" in trainer_content and 
+                          "DistributedDataParallel" in trainer_content and
+                          "RANK" in trainer_content)
+        
+        if has_ddp_support and gpu_count >= 1:
+            # Usar entrenamiento distribuido
+            if gpu_count < 2:
+                print("⚠️  Solo se detectó 1 GPU. Usando entrenamiento distribuido con 1 GPU...")
+                nproc = 1
+            else:
+                nproc = min(gpu_count, 2)  # Usar máximo 2 GPUs
+                print(f"🚀 Usando {nproc} GPUs para entrenamiento distribuido")
+            
+            # Comando torchrun
+            cmd = [
+                "torchrun",
+                f"--nproc_per_node={nproc}",
+                "trainer.py"
+            ]
+            
+            print(f"💻 Ejecutando comando: {' '.join(cmd)}")
+            print("⏳ Iniciando entrenamiento distribuido...")
+            print("-" * 40)
+            
+            # Ejecutar torchrun
+            result = subprocess.run(cmd, capture_output=False, text=True)
+            
+            print("-" * 40)
+            if result.returncode == 0:
+                print("✅ Entrenamiento de segmentación completado exitosamente!")
+            else:
+                print(f"❌ Error en el entrenamiento. Código de salida: {result.returncode}")
+                
         else:
-            print("❌ Error en el entrenamiento")
+            # Fallback a entrenamiento tradicional
+            if not has_ddp_support:
+                print("⚠️  trainer.py no tiene soporte DDP. Usando entrenamiento tradicional...")
+            
+            from trainer import train_segmentation as train_seg
+            from settings import get_segmentation_config
+            
+            config = get_segmentation_config()
+            success = train_seg(config)
+            
+            if success:
+                print("✅ Entrenamiento completado exitosamente!")
+            else:
+                print("❌ Error en el entrenamiento")
 
     except ImportError as e:
         print(f"❌ Módulos necesarios no disponibles: {e}")
         print("   Necesarios: settings.py, trainer.py, models.py, datasets.py")
+    except FileNotFoundError:
+        print("❌ 'torchrun' no encontrado. Asegúrate de tener PyTorch instalado correctamente.")
+        print("💡 Instala PyTorch con: pip install torch torchvision")
+    except Exception as e:
+        print(f"❌ Error ejecutando entrenamiento: {e}")
 
 
 def train_harmonization():
