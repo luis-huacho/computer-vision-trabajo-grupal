@@ -63,12 +63,14 @@ class UNetHarmonizer(nn.Module):
         # Bottleneck
         self.bottleneck = DoubleConv(512, 1024, dropout_rate=0.2)
 
-        # Decoder
-        self.up1 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
-        self.up2 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
-        self.up3 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
-        self.up4 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
-        self.up5 = nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2)
+        # Decoder - cambiar a Upsample + Conv para evitar checkerboard artifacts
+        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
+        
+        self.up_conv1 = nn.Conv2d(1024, 512, kernel_size=3, padding=1)
+        self.up_conv2 = nn.Conv2d(512, 256, kernel_size=3, padding=1)
+        self.up_conv3 = nn.Conv2d(256, 128, kernel_size=3, padding=1)
+        self.up_conv4 = nn.Conv2d(128, 64, kernel_size=3, padding=1)
+        self.up_conv5 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
 
         # Attention gates para harmonización
         if self.use_attention:
@@ -137,7 +139,8 @@ class UNetHarmonizer(nn.Module):
         skips = skip_connections[::-1]  # Invertir orden
 
         # Up 1
-        up1 = self.up1(bottleneck)
+        up1 = self.upsample(bottleneck)
+        up1 = self.up_conv1(up1)
         skip = self._match_tensor_size(skips[0], up1)
         if self.use_attention:
             skip = self.att1(skip, up1)
@@ -145,7 +148,8 @@ class UNetHarmonizer(nn.Module):
         up1 = self.dec_conv1(up1)
 
         # Up 2
-        up2 = self.up2(up1)
+        up2 = self.upsample(up1)
+        up2 = self.up_conv2(up2)
         skip = self._match_tensor_size(skips[1], up2)
         if self.use_attention:
             skip = self.att2(skip, up2)
@@ -153,7 +157,8 @@ class UNetHarmonizer(nn.Module):
         up2 = self.dec_conv2(up2)
 
         # Up 3
-        up3 = self.up3(up2)
+        up3 = self.upsample(up2)
+        up3 = self.up_conv3(up3)
         skip = self._match_tensor_size(skips[2], up3)
         if self.use_attention:
             skip = self.att3(skip, up3)
@@ -161,7 +166,8 @@ class UNetHarmonizer(nn.Module):
         up3 = self.dec_conv3(up3)
 
         # Up 4
-        up4 = self.up4(up3)
+        up4 = self.upsample(up3)
+        up4 = self.up_conv4(up4)
         skip = self._match_tensor_size(skips[3], up4)
         if self.use_attention:
             skip = self.att4(skip, up4)
@@ -169,7 +175,8 @@ class UNetHarmonizer(nn.Module):
         up4 = self.dec_conv4(up4)
 
         # Up 5 (final)
-        up5 = self.up5(up4)
+        up5 = self.upsample(up4)
+        up5 = self.up_conv5(up5)
         skip = self._match_tensor_size(skips[4], up5)
         if self.use_attention:
             skip = self.att5(skip, up5)
