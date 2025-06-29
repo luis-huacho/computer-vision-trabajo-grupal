@@ -1,0 +1,4 @@
+2025-06-28 23:46:22,654 - INFO - Iniciando entrenamiento de harmonización distribuido...
+2025-06-28 23:46:22,654 - INFO - Configuración: {'batch_size': 8, 'learning_rate': 5e-05, 'weight_decay': 1e-06, 'num_epochs': 50, 'image_size': 384, 'num_workers': 4, 'pin_memory': True, 'device': 'cuda:0'}
+2025-06-28 23:46:22,654 - INFO - 
+Época 1/50

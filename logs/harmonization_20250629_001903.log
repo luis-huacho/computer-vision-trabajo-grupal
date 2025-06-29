@@ -1,0 +1,304 @@
+2025-06-29 00:19:03,845 - INFO - Iniciando entrenamiento de harmonización distribuido...
+2025-06-29 00:19:03,845 - INFO - Configuración: {'batch_size': 8, 'learning_rate': 5e-05, 'weight_decay': 1e-06, 'num_epochs': 50, 'image_size': 384, 'num_workers': 4, 'pin_memory': True, 'device': 'cuda:0'}
+2025-06-29 00:19:03,845 - INFO - 
+Época 1/50
+2025-06-29 00:19:04,283 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:04,290 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:04,439 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:04,439 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:04,858 - INFO - ¡Nuevo mejor modelo de harmonización! Loss: 0.0000
+2025-06-29 00:19:04,858 - INFO - 
+Época 2/50
+2025-06-29 00:19:05,063 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:05,082 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:05,247 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:05,248 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:05,451 - INFO - 
+Época 3/50
+2025-06-29 00:19:05,646 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:05,658 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:05,812 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:05,812 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:06,012 - INFO - 
+Época 4/50
+2025-06-29 00:19:06,214 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:06,231 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:06,392 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:06,393 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:06,590 - INFO - 
+Época 5/50
+2025-06-29 00:19:06,779 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:06,798 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:06,959 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:06,959 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:07,146 - INFO - 
+Época 6/50
+2025-06-29 00:19:07,340 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:07,349 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:07,506 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:07,506 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:07,703 - INFO - 
+Época 7/50
+2025-06-29 00:19:07,904 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:07,922 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:08,081 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:08,082 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:08,275 - INFO - 
+Época 8/50
+2025-06-29 00:19:08,474 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:08,484 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:08,650 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:08,650 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:08,844 - INFO - 
+Época 9/50
+2025-06-29 00:19:09,041 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:09,050 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:09,209 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:09,210 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:09,403 - INFO - 
+Época 10/50
+2025-06-29 00:19:09,601 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:09,620 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:09,784 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:09,784 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:09,984 - INFO - 
+Época 11/50
+2025-06-29 00:19:10,169 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:10,188 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:10,351 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:10,351 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:10,542 - INFO - 
+Época 12/50
+2025-06-29 00:19:10,733 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:10,751 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:10,908 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:10,908 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:11,097 - INFO - 
+Época 13/50
+2025-06-29 00:19:11,284 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:11,293 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:11,448 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:11,448 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:11,639 - INFO - 
+Época 14/50
+2025-06-29 00:19:11,832 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:11,851 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:12,014 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:12,015 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:12,208 - INFO - 
+Época 15/50
+2025-06-29 00:19:12,405 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:12,422 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:12,587 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:12,588 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:12,783 - INFO - 
+Época 16/50
+2025-06-29 00:19:12,970 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:12,979 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:13,146 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:13,146 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:13,335 - INFO - 
+Época 17/50
+2025-06-29 00:19:13,539 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:13,558 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:13,709 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:13,710 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:13,902 - INFO - 
+Época 18/50
+2025-06-29 00:19:14,095 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:14,114 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:14,282 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:14,282 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:14,470 - INFO - 
+Época 19/50
+2025-06-29 00:19:14,673 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:14,681 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:14,838 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:14,839 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:15,027 - INFO - 
+Época 20/50
+2025-06-29 00:19:15,221 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:15,239 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:15,408 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:15,408 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:15,599 - INFO - 
+Época 21/50
+2025-06-29 00:19:15,807 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:15,815 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:15,980 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:15,980 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:16,169 - INFO - 
+Época 22/50
+2025-06-29 00:19:16,364 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:16,382 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:16,548 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:16,548 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:16,746 - INFO - 
+Época 23/50
+2025-06-29 00:19:16,939 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:16,947 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:17,106 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:17,106 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:17,323 - INFO - 
+Época 24/50
+2025-06-29 00:19:17,527 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:17,538 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:17,697 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:17,698 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:17,899 - INFO - 
+Época 25/50
+2025-06-29 00:19:18,095 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:18,104 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:18,270 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:18,271 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:18,462 - INFO - 
+Época 26/50
+2025-06-29 00:19:18,660 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:18,672 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:18,839 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:18,839 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:19,032 - INFO - 
+Época 27/50
+2025-06-29 00:19:19,235 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:19,255 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:19,420 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:19,420 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:19,614 - INFO - 
+Época 28/50
+2025-06-29 00:19:19,820 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:19,840 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:20,009 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:20,009 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:20,197 - INFO - 
+Época 29/50
+2025-06-29 00:19:20,386 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:20,395 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:20,562 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:20,562 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:20,753 - INFO - 
+Época 30/50
+2025-06-29 00:19:20,949 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:20,968 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:21,122 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:21,122 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:21,320 - INFO - 
+Época 31/50
+2025-06-29 00:19:21,523 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:21,541 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:21,706 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:21,706 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:21,899 - INFO - 
+Época 32/50
+2025-06-29 00:19:22,090 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:22,106 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:22,270 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:22,270 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:22,460 - INFO - 
+Época 33/50
+2025-06-29 00:19:22,658 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:22,678 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:22,838 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:22,838 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:23,032 - INFO - 
+Época 34/50
+2025-06-29 00:19:23,222 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:23,233 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:23,393 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:23,393 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:23,582 - INFO - 
+Época 35/50
+2025-06-29 00:19:23,783 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:23,802 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:23,969 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:23,969 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:24,158 - INFO - 
+Época 36/50
+2025-06-29 00:19:24,358 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:24,377 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:24,541 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:24,541 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:24,732 - INFO - 
+Época 37/50
+2025-06-29 00:19:24,930 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:24,940 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:25,094 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:25,094 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:25,284 - INFO - 
+Época 38/50
+2025-06-29 00:19:25,467 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:25,478 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:25,642 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:25,642 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:25,838 - INFO - 
+Época 39/50
+2025-06-29 00:19:26,030 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:26,049 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:26,228 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:26,228 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:26,424 - INFO - 
+Época 40/50
+2025-06-29 00:19:26,620 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:26,641 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:26,809 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:26,809 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:27,001 - INFO - 
+Época 41/50
+2025-06-29 00:19:27,198 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:27,207 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:27,369 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:27,369 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:27,562 - INFO - 
+Época 42/50
+2025-06-29 00:19:27,754 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:27,763 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:27,907 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:27,907 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:28,122 - INFO - 
+Época 43/50
+2025-06-29 00:19:28,315 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:28,334 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:28,494 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:28,494 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:28,702 - INFO - 
+Época 44/50
+2025-06-29 00:19:28,902 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:28,911 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:29,077 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:29,077 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:29,284 - INFO - 
+Época 45/50
+2025-06-29 00:19:29,484 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:29,494 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:29,653 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:29,653 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:29,851 - INFO - 
+Época 46/50
+2025-06-29 00:19:30,042 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:30,052 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:30,220 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:30,220 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:30,449 - INFO - 
+Época 47/50
+2025-06-29 00:19:30,650 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:30,669 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:30,830 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:30,830 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:31,061 - INFO - 
+Época 48/50
+2025-06-29 00:19:31,267 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:31,286 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:31,446 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:31,446 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:31,693 - INFO - 
+Época 49/50
+2025-06-29 00:19:31,894 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:31,913 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:32,084 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:32,084 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:32,276 - INFO - 
+Época 50/50
+2025-06-29 00:19:32,469 - ERROR - Error in batch 0: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:32,478 - ERROR - Error in batch 1: Given input size: (512x1x1). Calculated output size: (512x0x0). Output size is too small
+2025-06-29 00:19:32,638 - INFO - Train - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:32,638 - INFO - Val   - Loss: 0.0000, MSE: 0.0000
+2025-06-29 00:19:32,827 - INFO - Entrenamiento de harmonización completado!
