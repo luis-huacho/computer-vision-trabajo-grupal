@@ -21,6 +21,80 @@ from torch.utils.data.distributed import DistributedSampler
 warnings.filterwarnings('ignore')
 
 
+class AttentionBlock(nn.Module):
+    """Attention Gate para U-Net."""
+
+    def __init__(self, gate_channels, in_channels, inter_channels):
+        super(AttentionBlock, self).__init__()
+
+        self.gate_conv = nn.Conv2d(gate_channels, inter_channels, kernel_size=1, stride=1, padding=0, bias=True)
+        self.input_conv = nn.Conv2d(in_channels, inter_channels, kernel_size=1, stride=1, padding=0, bias=True)
+        self.output_conv = nn.Conv2d(inter_channels, 1, kernel_size=1, stride=1, padding=0, bias=True)
+        self.relu = nn.ReLU(inplace=True)
+        self.bn = nn.BatchNorm2d(1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x, gate):
+        gate_conv = self.gate_conv(gate)
+        input_conv = self.input_conv(x)
+
+        if gate_conv.shape[2:] != input_conv.shape[2:]:
+            gate_conv = F.interpolate(gate_conv, size=input_conv.shape[2:], mode='bilinear', align_corners=False)
+
+        combined = self.relu(gate_conv + input_conv)
+        attention = self.sigmoid(self.bn(self.output_conv(combined)))
+
+        return x * attention
+
+
+class DoubleConv(nn.Module):
+    """Bloque de doble convolución usado en U-Net."""
+
+    def __init__(self, in_channels, out_channels, dropout_rate=0.1):
+        super(DoubleConv, self).__init__()
+        self.double_conv = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+            nn.Dropout2d(dropout_rate),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        return self.double_conv(x)
+
+
+class BasicCheckpointManager:
+    """Gestor básico de checkpoints para harmonización."""
+    
+    def __init__(self):
+        self.best_loss = float('inf')
+        
+    def save_checkpoint(self, model, optimizer, epoch, loss, metrics, is_best, prefix):
+        """Guarda un checkpoint del modelo."""
+        os.makedirs('checkpoints', exist_ok=True)
+        
+        checkpoint = {
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'epoch': epoch,
+            'loss': loss,
+            'metrics': metrics
+        }
+        
+        # Guardar checkpoint regular
+        checkpoint_path = f'checkpoints/{prefix}_epoch_{epoch}.pth'
+        torch.save(checkpoint, checkpoint_path)
+        
+        # Guardar mejor modelo
+        if is_best:
+            best_path = f'checkpoints/best_{prefix}.pth'
+            torch.save(checkpoint, best_path)
+            print(f"Guardado mejor modelo: {best_path}")
+
+
 class UNetHarmonizer(nn.Module):
     """
     U-Net especializado en harmonización de iluminación y color.
@@ -31,8 +105,8 @@ class UNetHarmonizer(nn.Module):
         super(UNetHarmonizer, self).__init__()
         self.use_attention = use_attention
 
-        # Import de clases necesarias desde main
-        from models import AttentionBlock, DoubleConv
+        # Import de clases necesarias desde el módulo actual
+        # Estas clases deben estar definidas en el mismo archivo o disponibles globalmente
 
         # Usar siempre encoder básico para evitar problemas de dimensiones
         self.conv1 = self._make_layer(3, 64)
@@ -179,9 +253,8 @@ class HarmonizationDataset(Dataset):
         self.transform = transform
         self.image_size = image_size
 
-        # Import ImageProcessor desde main
-        from utils import ImageProcessor
-        self.processor = ImageProcessor()
+        # Usar ImageProcessor básico (se puede definir aquí si es necesario)
+        self.processor = None  # Se inicializará cuando se necesite
 
         # Obtener listas de archivos
         self.foreground_files = [f for f in os.listdir(foreground_dir)
@@ -232,8 +305,8 @@ class HarmonizationDataset(Dataset):
             foreground = cv2.resize(foreground, (self.image_size, self.image_size), interpolation=cv2.INTER_AREA)
             background = cv2.resize(background, (self.image_size, self.image_size), interpolation=cv2.INTER_AREA)
 
-            # Crear composición
-            composite = self.processor.composite_foreground_background(foreground, background)
+            # Crear composición básica
+            composite = self._basic_composite(foreground, background)
 
             # El target es la imagen original del foreground (sin fondo)
             # Para simplificar, usamos la composición como target también
@@ -266,6 +339,24 @@ class HarmonizationDataset(Dataset):
         except Exception as e:
             # logging.error(f"Error fatal procesando {foreground_path} o {background_path}: {e}", exc_info=True)
             return self._get_dummy_sample()
+
+    def _basic_composite(self, foreground_rgba, background_rgb):
+        """Composición básica de foreground RGBA sobre background RGB."""
+        # Extraer canales
+        foreground_rgb = foreground_rgba[:, :, :3].astype(np.float32) / 255.0
+        alpha = foreground_rgba[:, :, 3].astype(np.float32) / 255.0
+        background_rgb = background_rgb.astype(np.float32) / 255.0
+        
+        # Normalizar alpha y expandir dimensiones
+        alpha = alpha[:, :, np.newaxis]
+        
+        # Composición alpha blending
+        composite = foreground_rgb * alpha + background_rgb * (1 - alpha)
+        
+        # Convertir de vuelta a uint8
+        composite = (composite * 255).astype(np.uint8)
+        
+        return composite
 
     def _get_dummy_sample(self):
         """Retorna una muestra dummy en caso de error."""
@@ -408,9 +499,8 @@ class HarmonizationTrainer:
         self.scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, T_0=10, T_mult=2)
         self.loss_calculator = HarmonizationLossCalculator()
 
-        # Import ModelCheckpoint desde main
-        from utils import ModelCheckpoint
-        self.checkpoint_manager = ModelCheckpoint()
+        # Checkpoint manager básico
+        self.checkpoint_manager = BasicCheckpointManager()
 
         # Historial de entrenamiento
         self.train_history = {'loss': [], 'mse': [], 'perceptual': []}
@@ -930,7 +1020,7 @@ class HarmonizationInference:
 
         # Cargar modelo entrenado
         if os.path.exists(model_path):
-            checkpoint = torch.load(model_path, map_location=device)
+            checkpoint = torch.load(model_path, map_location=device, weights_only=False)
             # Cargar el state_dict del modelo subyacente si fue guardado desde DDP
             state_dict = checkpoint['model_state_dict']
             if isinstance(self.model, DDP):
@@ -945,12 +1035,14 @@ class HarmonizationInference:
             print(f"Modelo de harmonización no encontrado: {model_path}")
             self.model = None
 
-    def harmonize_composition(self, composite_rgb, output_path=None):
+    def harmonize_composition(self, composite_rgb, blend_factor=0.7, preserve_sharpness=True, output_path=None):
         """
-        Armoniza una composición RGB.
+        Armoniza una composición RGB preservando la nitidez.
 
         Args:
             composite_rgb: Imagen RGB compuesta (H, W, 3)
+            blend_factor: Factor de mezcla entre original y harmonizado (0.0 = solo original, 1.0 = solo harmonizado)
+            preserve_sharpness: Si aplicar filtro de nitidez
             output_path: Ruta para guardar resultado (opcional)
 
         Returns:
@@ -961,9 +1053,12 @@ class HarmonizationInference:
             return composite_rgb
 
         original_size = composite_rgb.shape[:2]
+        
+        # Guardar imagen original para blend posterior
+        original_composite = composite_rgb.copy()
 
-        # Redimensionar para el modelo
-        composite_resized = cv2.resize(composite_rgb, (384, 384))
+        # Redimensionar para el modelo usando interpolación de alta calidad
+        composite_resized = cv2.resize(composite_rgb, (384, 384), interpolation=cv2.INTER_CUBIC)
 
         # Normalizar y convertir a tensor
         composite_normalized = composite_resized.astype(np.float32) / 255.0
@@ -976,16 +1071,57 @@ class HarmonizationInference:
 
         # Post-procesamiento
         harmonized = harmonized.transpose(1, 2, 0)
+        
+        # Clamp values to valid range
+        harmonized = np.clip(harmonized, 0, 1)
         harmonized = (harmonized * 255).astype(np.uint8)
 
-        # Restaurar tamaño original
-        harmonized = cv2.resize(harmonized, (original_size[1], original_size[0]))
+        # Restaurar tamaño original usando interpolación de alta calidad
+        harmonized = cv2.resize(harmonized, (original_size[1], original_size[0]), interpolation=cv2.INTER_CUBIC)
+
+        # Aplicar filtro de nitidez si está habilitado
+        if preserve_sharpness:
+            harmonized = self._apply_sharpening_filter(harmonized)
+
+        # Mezclar con la imagen original para preservar detalles
+        if blend_factor < 1.0:
+            # Convertir a float para evitar overflow
+            original_float = original_composite.astype(np.float32)
+            harmonized_float = harmonized.astype(np.float32)
+            
+            # Blend ponderado
+            blended = harmonized_float * blend_factor + original_float * (1 - blend_factor)
+            harmonized = np.clip(blended, 0, 255).astype(np.uint8)
 
         # Guardar si se especifica path
         if output_path:
             cv2.imwrite(output_path, cv2.cvtColor(harmonized, cv2.COLOR_RGB2BGR))
 
         return harmonized
+    
+    def _apply_sharpening_filter(self, image):
+        """
+        Aplica un filtro de nitidez sutil para restaurar detalles.
+        """
+        # Kernel de nitidez sutil
+        sharpening_kernel = np.array([
+            [0, -0.5, 0],
+            [-0.5, 3, -0.5],
+            [0, -0.5, 0]
+        ])
+        
+        # Aplicar filtro canal por canal
+        sharpened = np.zeros_like(image)
+        for i in range(3):
+            sharpened[:, :, i] = cv2.filter2D(image[:, :, i], -1, sharpening_kernel)
+        
+        # Clamp values
+        sharpened = np.clip(sharpened, 0, 255).astype(np.uint8)
+        
+        # Mezclar con la imagen original (50% nitidez)
+        result = cv2.addWeighted(image, 0.7, sharpened, 0.3, 0)
+        
+        return result
 
 
 if __name__ == "__main__":
