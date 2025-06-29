@@ -13,6 +13,10 @@ import matplotlib.pyplot as plt
 import albumentations as A
 from PIL import Image
 import warnings
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
+
 
 warnings.filterwarnings('ignore')
 
@@ -413,12 +417,13 @@ class HarmonizationTrainer:
     Clase para entrenar el modelo de harmonización.
     """
 
-    def __init__(self, model, train_loader, val_loader, device, config):
-        self.model = model.to(device)
+    def __init__(self, model, train_loader, val_loader, device, config, rank=0):
+        self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.device = device
         self.config = config
+        self.rank = rank
 
         # Inicializar componentes
         self.optimizer = optim.Adam(model.parameters(), lr=config['learning_rate'], weight_decay=config['weight_decay'])
@@ -438,30 +443,31 @@ class HarmonizationTrainer:
 
     def _setup_logger(self):
         """Configura el logger para harmonización."""
-        os.makedirs('logs', exist_ok=True)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        log_filename = f'logs/harmonization_{timestamp}.log'
-
         logger = logging.getLogger('harmonization')
-        logger.setLevel(logging.INFO)
+        if self.rank == 0:
+            os.makedirs('logs', exist_ok=True)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            log_filename = f'logs/harmonization_{timestamp}.log'
+            logger.setLevel(logging.INFO)
 
-        # Evitar duplicar handlers
-        if not logger.handlers:
-            handler = logging.FileHandler(log_filename)
-            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-            handler.setFormatter(formatter)
-            logger.addHandler(handler)
+            if not logger.handlers:
+                handler = logging.FileHandler(log_filename)
+                formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+                handler.setFormatter(formatter)
+                logger.addHandler(handler)
 
-            # También log a consola
-            console_handler = logging.StreamHandler()
-            console_handler.setFormatter(formatter)
-            logger.addHandler(console_handler)
+                console_handler = logging.StreamHandler()
+                console_handler.setFormatter(formatter)
+                logger.addHandler(console_handler)
+        else:
+            logger.setLevel(logging.CRITICAL) # Solo el rank 0 logea
 
         return logger
 
     def train_epoch(self):
         """Entrena una época."""
         self.model.train()
+        self.train_loader.sampler.set_epoch(self.epoch) # Sincronizar shuffling
         epoch_losses = []
         epoch_mse = []
         epoch_perceptual = []
@@ -471,51 +477,40 @@ class HarmonizationTrainer:
                 images = images.to(self.device)
                 targets = targets.to(self.device)
 
-                # Verificar que no hay NaN en los datos de entrada
                 if torch.isnan(images).any() or torch.isnan(targets).any():
-                    self.logger.warning(f"NaN detectado en batch {batch_idx}, saltando...")
+                    if self.rank == 0: self.logger.warning(f"NaN detectado en batch {batch_idx}, saltando...")
                     continue
 
-                # Forward pass
                 self.optimizer.zero_grad()
                 outputs = self.model(images)
 
-                # Verificar que no hay NaN en las salidas
                 if torch.isnan(outputs).any():
-                    self.logger.warning(f"NaN en outputs del batch {batch_idx}, saltando...")
+                    if self.rank == 0: self.logger.warning(f"NaN en outputs del batch {batch_idx}, saltando...")
                     continue
 
-                # Calcular pérdidas
                 loss_dict = self.loss_calculator.calculate_loss(outputs, targets)
                 total_loss = loss_dict['total_loss']
 
-                # Verificar que la pérdida es válida
                 if torch.isnan(total_loss) or torch.isinf(total_loss):
-                    self.logger.warning(f"Pérdida inválida en batch {batch_idx}: {total_loss.item()}, saltando...")
+                    if self.rank == 0: self.logger.warning(f"Pérdida inválida en batch {batch_idx}: {total_loss.item()}, saltando...")
                     continue
 
-                # Backward pass
                 total_loss.backward()
-
-                # Gradient clipping
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=0.5)
                 self.optimizer.step()
 
-                # Guardar métricas
                 epoch_losses.append(total_loss.item())
                 epoch_mse.append(loss_dict['mse_loss'].item())
                 epoch_perceptual.append(loss_dict['perceptual_loss'].item())
 
-                # Log cada N batches
-                if batch_idx % 20 == 0:
+                if self.rank == 0 and batch_idx % 20 == 0:
                     self.logger.info(f'Batch {batch_idx}/{len(self.train_loader)}: '
                                      f'Loss: {total_loss.item():.4f}, MSE: {loss_dict["mse_loss"].item():.4f}')
 
             except Exception as e:
-                self.logger.error(f"Error in batch {batch_idx}: {str(e)}")
+                if self.rank == 0: self.logger.error(f"Error in batch {batch_idx}: {str(e)}")
                 continue
 
-        # Retornar promedios válidos
         if len(epoch_losses) > 0:
             return np.mean(epoch_losses), np.mean(epoch_mse), np.mean(epoch_perceptual)
         else:
@@ -534,35 +529,28 @@ class HarmonizationTrainer:
                     images = images.to(self.device)
                     targets = targets.to(self.device)
 
-                    # Verificar datos válidos
                     if torch.isnan(images).any() or torch.isnan(targets).any():
                         continue
 
-                    # Forward pass
                     outputs = self.model(images)
 
-                    # Verificar salidas válidas
                     if torch.isnan(outputs).any():
                         continue
 
-                    # Calcular pérdidas
                     loss_dict = self.loss_calculator.calculate_loss(outputs, targets)
                     total_loss = loss_dict['total_loss']
 
-                    # Verificar pérdida válida
                     if torch.isnan(total_loss) or torch.isinf(total_loss):
                         continue
 
-                    # Guardar métricas
                     epoch_losses.append(total_loss.item())
                     epoch_mse.append(loss_dict['mse_loss'].item())
                     epoch_perceptual.append(loss_dict['perceptual_loss'].item())
 
                 except Exception as e:
-                    self.logger.error(f"Error in validation batch {batch_idx}: {str(e)}")
+                    if self.rank == 0: self.logger.error(f"Error in validation batch {batch_idx}: {str(e)}")
                     continue
 
-        # Retornar promedios válidos
         if len(epoch_losses) > 0:
             return np.mean(epoch_losses), np.mean(epoch_mse), np.mean(epoch_perceptual)
         else:
@@ -570,57 +558,53 @@ class HarmonizationTrainer:
 
     def train(self, num_epochs):
         """Entrenamiento principal."""
-        self.logger.info("Iniciando entrenamiento de harmonización...")
-        self.logger.info(f"Configuración: {self.config}")
+        if self.rank == 0:
+            self.logger.info("Iniciando entrenamiento de harmonización distribuido...")
+            self.logger.info(f"Configuración: {self.config}")
 
         for epoch in range(num_epochs):
-            self.logger.info(f"\nÉpoca {epoch + 1}/{num_epochs}")
+            self.epoch = epoch
+            if self.rank == 0: self.logger.info(f"\nÉpoca {epoch + 1}/{num_epochs}")
 
-            # Entrenar
             train_loss, train_mse, train_perceptual = self.train_epoch()
-
-            # Validar
             val_loss, val_mse, val_perceptual = self.validate_epoch()
-
-            # Actualizar scheduler
             self.scheduler.step()
 
-            # Verificar si los valores son válidos antes de guardar
             if not (np.isnan(train_loss) or np.isnan(val_loss)):
-                # Guardar historial
-                self.train_history['loss'].append(train_loss)
-                self.train_history['mse'].append(train_mse)
-                self.train_history['perceptual'].append(train_perceptual)
+                if self.rank == 0:
+                    self.train_history['loss'].append(train_loss)
+                    self.train_history['mse'].append(train_mse)
+                    self.train_history['perceptual'].append(train_perceptual)
 
-                self.val_history['loss'].append(val_loss)
-                self.val_history['mse'].append(val_mse)
-                self.val_history['perceptual'].append(val_perceptual)
+                    self.val_history['loss'].append(val_loss)
+                    self.val_history['mse'].append(val_mse)
+                    self.val_history['perceptual'].append(val_perceptual)
 
-                # Log resultados
-                self.logger.info(f"Train - Loss: {train_loss:.4f}, MSE: {train_mse:.4f}")
-                self.logger.info(f"Val   - Loss: {val_loss:.4f}, MSE: {val_mse:.4f}")
+                    self.logger.info(f"Train - Loss: {train_loss:.4f}, MSE: {train_mse:.4f}")
+                    self.logger.info(f"Val   - Loss: {val_loss:.4f}, MSE: {val_mse:.4f}")
 
-                # Guardar checkpoint
-                is_best = val_loss < self.checkpoint_manager.best_loss
-                if is_best:
-                    self.checkpoint_manager.best_loss = val_loss
+                    is_best = val_loss < self.checkpoint_manager.best_loss
+                    if is_best:
+                        self.checkpoint_manager.best_loss = val_loss
 
-                metrics = {
-                    'train_loss': train_loss, 'train_mse': train_mse,
-                    'val_loss': val_loss, 'val_mse': val_mse
-                }
+                    metrics = {
+                        'train_loss': train_loss, 'train_mse': train_mse,
+                        'val_loss': val_loss, 'val_mse': val_mse
+                    }
+                    
+                    # Al guardar, se guarda el state_dict del modelo subyacente
+                    self.checkpoint_manager.save_checkpoint(
+                        self.model.module, self.optimizer, epoch, val_loss, metrics, is_best, 'harmonizer'
+                    )
 
-                self.checkpoint_manager.save_checkpoint(
-                    self.model, self.optimizer, epoch, val_loss, metrics, is_best, 'harmonizer'
-                )
-
-                if is_best:
-                    self.logger.info(f"¡Nuevo mejor modelo de harmonización! Loss: {val_loss:.4f}")
+                    if is_best:
+                        self.logger.info(f"¡Nuevo mejor modelo de harmonización! Loss: {val_loss:.4f}")
             else:
-                self.logger.warning(f"Época {epoch + 1} saltada debido a valores NaN")
+                if self.rank == 0: self.logger.warning(f"Época {epoch + 1} saltada debido a valores NaN")
 
-        self.logger.info("Entrenamiento de harmonización completado!")
-        self.save_training_plots()
+        if self.rank == 0:
+            self.logger.info("Entrenamiento de harmonización completado!")
+            self.save_training_plots()
 
     def save_training_plots(self):
         """Guarda gráficas del entrenamiento."""
@@ -629,10 +613,7 @@ class HarmonizationTrainer:
             return
 
         os.makedirs('plots', exist_ok=True)
-
         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-
-        # Loss
         axes[0].plot(self.train_history['loss'], label='Train Loss')
         axes[0].plot(self.val_history['loss'], label='Val Loss')
         axes[0].set_title('Harmonization Training and Validation Loss')
@@ -640,8 +621,6 @@ class HarmonizationTrainer:
         axes[0].set_ylabel('Loss')
         axes[0].legend()
         axes[0].grid(True)
-
-        # MSE
         axes[1].plot(self.train_history['mse'], label='Train MSE')
         axes[1].plot(self.val_history['mse'], label='Val MSE')
         axes[1].set_title('MSE Loss')
@@ -649,8 +628,6 @@ class HarmonizationTrainer:
         axes[1].set_ylabel('MSE')
         axes[1].legend()
         axes[1].grid(True)
-
-        # Perceptual
         axes[2].plot(self.train_history['perceptual'], label='Train Perceptual')
         axes[2].plot(self.val_history['perceptual'], label='Val Perceptual')
         axes[2].set_title('Perceptual Loss')
@@ -658,7 +635,6 @@ class HarmonizationTrainer:
         axes[2].set_ylabel('Perceptual Loss')
         axes[2].legend()
         axes[2].grid(True)
-
         plt.tight_layout()
         plt.savefig('plots/harmonization_training_history.png', dpi=300, bbox_inches='tight')
         plt.close()
@@ -676,7 +652,6 @@ def get_harmonization_transforms():
     ], additional_targets={'mask': 'mask'})
 
     val_transform = A.Compose([
-        # Solo normalización para validación
     ], additional_targets={'mask': 'mask'})
 
     return train_transform, val_transform
@@ -687,121 +662,76 @@ def create_sample_harmonization_dataset():
     Crea un dataset de muestra para harmonización usando imágenes COCO.
     """
     print("=== CREANDO DATASET DE MUESTRA PARA HARMONIZACIÓN ===\n")
-
-    # Directorios para harmonización
     foreground_dir = 'dataset/foregrounds'
     background_dir = 'dataset/backgrounds'
     coco_root = 'COCO'
-
-    # Crear directorios
     os.makedirs(foreground_dir, exist_ok=True)
     os.makedirs(background_dir, exist_ok=True)
-
     try:
-        # Verificar si ya existen imágenes
         existing_fg = len([f for f in os.listdir(foreground_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
         existing_bg = len([f for f in os.listdir(background_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
-
         print(f"📊 Estado actual:")
         print(f"   - Foregrounds existentes: {existing_fg}")
         print(f"   - Backgrounds existentes: {existing_bg}")
-
         if existing_fg >= 10 and existing_bg >= 10:
             print("✅ Ya existen suficientes imágenes para harmonización")
             return True
-
-        # Crear imágenes de muestra usando COCO si está disponible
         if os.path.exists(os.path.join(coco_root, 'val2017')):
             print("🎯 Generando imágenes de muestra desde COCO...")
-
-            # Usar imágenes COCO como backgrounds
             coco_images = [f for f in os.listdir(os.path.join(coco_root, 'val2017'))
                            if f.endswith('.jpg')][:20]
-
             created_bg = 0
             for img_file in coco_images:
                 if created_bg >= 10:
                     break
-
                 src_path = os.path.join(coco_root, 'val2017', img_file)
                 dst_path = os.path.join(background_dir, f'bg_{created_bg:03d}.jpg')
-
                 try:
                     import shutil
                     shutil.copy2(src_path, dst_path)
                     created_bg += 1
                 except Exception as e:
                     print(f"Error copiando {img_file}: {e}")
-
             print(f"   ✅ Creados {created_bg} backgrounds desde COCO")
-
-        # Crear foregrounds sintéticos si no existen suficientes
         if existing_fg < 10:
             print("🎨 Generando foregrounds sintéticos...")
-
             for i in range(10 - existing_fg):
-                # Crear imagen RGBA sintética (persona simulada)
                 fg_image = np.random.randint(50, 200, (384, 384, 3), dtype=np.uint8)
-
-                # Crear máscara circular simple para simular persona
                 center = (192, 192)
                 radius = 100
                 y, x = np.ogrid[:384, :384]
                 mask = (x - center[0]) ** 2 + (y - center[1]) ** 2 <= radius ** 2
-
-                # Crear canal alpha
                 alpha = np.zeros((384, 384), dtype=np.uint8)
                 alpha[mask] = 255
-
-                # Combinar RGBA
                 rgba_image = np.dstack([fg_image, alpha])
-
-                # Guardar
                 fg_path = os.path.join(foreground_dir, f'fg_synthetic_{i:03d}.png')
                 cv2.imwrite(fg_path, rgba_image)
-
             print(f"   ✅ Creados {10 - existing_fg} foregrounds sintéticos")
-
-        # Crear backgrounds sintéticos si no existen suficientes
         if existing_bg < 10:
             print("🖼️ Generando backgrounds sintéticos...")
-
             for i in range(10 - existing_bg):
-                # Crear gradientes de colores diversos
                 bg_image = np.zeros((384, 384, 3), dtype=np.uint8)
-
-                # Gradiente aleatorio
                 color1 = np.random.randint(0, 255, 3)
                 color2 = np.random.randint(0, 255, 3)
-
                 for j in range(384):
                     ratio = j / 384.0
                     bg_image[j, :] = color1 * (1 - ratio) + color2 * ratio
-
-                # Añadir algo de ruido
                 noise = np.random.randint(-20, 20, (384, 384, 3))
                 bg_image = np.clip(bg_image.astype(np.int16) + noise, 0, 255).astype(np.uint8)
-
                 bg_path = os.path.join(background_dir, f'bg_synthetic_{i:03d}.jpg')
                 cv2.imwrite(bg_path, cv2.cvtColor(bg_image, cv2.COLOR_RGB2BGR))
-
             print(f"   ✅ Creados {10 - existing_bg} backgrounds sintéticos")
-
-        # Verificar resultado final
         final_fg = len([f for f in os.listdir(foreground_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
         final_bg = len([f for f in os.listdir(background_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
-
         print(f"\n📈 Resultado final:")
         print(f"   - Total foregrounds: {final_fg}")
         print(f"   - Total backgrounds: {final_bg}")
-
         if final_fg >= 5 and final_bg >= 5:
             print("✅ Dataset de harmonización listo")
             return True
         else:
             print("❌ No se pudo crear dataset suficiente")
             return False
-
     except Exception as e:
         print(f"❌ Error creando dataset de harmonización: {e}")
         import traceback
@@ -814,58 +744,39 @@ def test_harmonization_dataset():
     Función de prueba para verificar el dataset de harmonización.
     """
     print("Probando dataset de harmonización...")
-
-    # Crear directorios de prueba temporales
     temp_fg_dir = 'temp_foregrounds'
     temp_bg_dir = 'temp_backgrounds'
-
     os.makedirs(temp_fg_dir, exist_ok=True)
     os.makedirs(temp_bg_dir, exist_ok=True)
-
     try:
-        # Crear imágenes de prueba
-        # Foreground RGBA
         fg_image = np.random.randint(0, 256, (384, 384, 4), dtype=np.uint8)
         cv2.imwrite(os.path.join(temp_fg_dir, 'test_fg.png'), fg_image)
-
-        # Background RGB
         bg_image = np.random.randint(0, 256, (384, 384, 3), dtype=np.uint8)
         cv2.imwrite(os.path.join(temp_bg_dir, 'test_bg.jpg'), bg_image)
-
-        # Crear dataset
         dataset = HarmonizationDataset(
             foreground_dir=temp_fg_dir,
             background_dir=temp_bg_dir,
             transform=None,
             image_size=384
         )
-
         print(f"✓ Dataset de harmonización creado exitosamente")
         print(f"  Total de combinaciones: {len(dataset)}")
-
         if len(dataset) > 0:
-            # Probar cargar una muestra
             sample = dataset[0]
             composite, target = sample
-
             print(f"  ✓ Muestra de harmonización cargada exitosamente")
             print(f"    Composite shape: {composite.shape}")
             print(f"    Target shape: {target.shape}")
-
-            # Limpiar archivos temporales
             os.remove(os.path.join(temp_fg_dir, 'test_fg.png'))
             os.remove(os.path.join(temp_bg_dir, 'test_bg.jpg'))
             os.rmdir(temp_fg_dir)
             os.rmdir(temp_bg_dir)
-
             return True
         else:
             print("✗ Dataset de harmonización vacío")
             return False
-
     except Exception as e:
         print(f"✗ Error creando dataset de harmonización: {e}")
-        # Limpiar en caso de error
         try:
             os.remove(os.path.join(temp_fg_dir, 'test_fg.png'))
             os.remove(os.path.join(temp_bg_dir, 'test_bg.jpg'))
@@ -881,29 +792,22 @@ def test_harmonizer_forward():
     Función de prueba para verificar el modelo de harmonización.
     """
     print("Probando forward pass del modelo de harmonización...")
-
     harmonizer = UNetHarmonizer(pretrained=False, use_attention=True)
     harmonizer.eval()
-
-    # Crear tensor de prueba
     test_input = torch.randn(1, 3, 384, 384)
-
     try:
         with torch.no_grad():
             harmonized_output = harmonizer(test_input)
-
         print(f"✓ Forward pass de harmonización exitoso!")
         print(f"  Input shape: {test_input.shape}")
         print(f"  Output shape: {harmonized_output.shape}")
         print(f"  Expected output shape: (1, 3, 384, 384)")
-
         if harmonized_output.shape == (1, 3, 384, 384):
             print("✓ Dimensiones de salida de harmonización correctas")
             return True
         else:
             print("✗ Dimensiones de salida de harmonización incorrectas")
             return False
-
     except Exception as e:
         print(f"✗ Error en forward pass de harmonización: {e}")
         return False
@@ -913,7 +817,14 @@ def train_harmonization_model(config=None):
     """
     Función principal para entrenar el modelo de harmonización.
     """
-    # Configuración por defecto si no se proporciona
+    # --- INICIO: Configuración para DDP ---
+    dist.init_process_group(backend='nccl')
+    rank = int(os.environ['RANK'])
+    world_size = int(os.environ['WORLD_SIZE'])
+    device_id = int(os.environ['LOCAL_RANK'])
+    torch.cuda.set_device(device_id)
+    # --- FIN: Configuración para DDP ---
+
     if config is None:
         config = {
             'batch_size': 8,
@@ -921,50 +832,38 @@ def train_harmonization_model(config=None):
             'weight_decay': 1e-6,
             'num_epochs': 50,
             'image_size': 384,
-            'device': 'cuda' if torch.cuda.is_available() else 'cpu',
             'num_workers': 4,
             'pin_memory': True,
         }
+    
+    config['device'] = f'cuda:{device_id}'
 
-    # Setup logging
     logger = logging.getLogger('harmonization_main')
-    logger.setLevel(logging.INFO)
+    if rank == 0:
+        logger.setLevel(logging.INFO)
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+        logger.info("Iniciando entrenamiento de modelo de harmonización")
+        logger.info(f"Dispositivo: {config['device']}, World Size: {world_size}")
 
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
-    logger.info("Iniciando entrenamiento de modelo de harmonización")
-    logger.info(f"Dispositivo: {config['device']}")
-
-    # Directorios para harmonización
     foreground_dir = 'dataset/foregrounds'
     background_dir = 'dataset/backgrounds'
-
-    # Crear directorios si no existen
     os.makedirs(foreground_dir, exist_ok=True)
     os.makedirs(background_dir, exist_ok=True)
 
-    # Verificar que existen imágenes
-    if len(os.listdir(foreground_dir)) == 0:
+    if len(os.listdir(foreground_dir)) == 0 and rank == 0:
         logger.warning(f"Directorio de foregrounds vacío: {foreground_dir}")
-        logger.info("Asegúrate de tener imágenes RGBA de personas en este directorio")
-        logger.info("Ejecuta: python main.py setup")
         return False
-
-    if len(os.listdir(background_dir)) == 0:
+    if len(os.listdir(background_dir)) == 0 and rank == 0:
         logger.warning(f"Directorio de backgrounds vacío: {background_dir}")
-        logger.info("Asegúrate de tener imágenes RGB de fondos en este directorio")
-        logger.info("Ejecuta: python main.py setup")
         return False
 
-    # Preparar transforms específicos para harmonización
     train_transform, val_transform = get_harmonization_transforms()
 
-    # Crear dataset de harmonización
-    logger.info("Creando dataset de harmonización...")
+    if rank == 0: logger.info("Creando dataset de harmonización...")
     dataset = HarmonizationDataset(
         foreground_dir=foreground_dir,
         background_dir=background_dir,
@@ -972,19 +871,22 @@ def train_harmonization_model(config=None):
         image_size=config['image_size']
     )
 
-    # Split train/val
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
 
-    # Crear data loaders
+    # --- INICIO: Cambios para DDP DataLoader ---
+    train_sampler = DistributedSampler(train_dataset, num_replicas=world_size, rank=rank)
+    val_sampler = DistributedSampler(val_dataset, num_replicas=world_size, rank=rank)
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=config['batch_size'],
-        shuffle=True,
+        shuffle=False,  # shuffle es False porque el Sampler se encarga
         num_workers=config['num_workers'],
         pin_memory=config['pin_memory'],
-        drop_last=True
+        drop_last=True,
+        sampler=train_sampler
     )
 
     val_loader = DataLoader(
@@ -993,34 +895,40 @@ def train_harmonization_model(config=None):
         shuffle=False,
         num_workers=config['num_workers'],
         pin_memory=config['pin_memory'],
-        drop_last=True
+        drop_last=True,
+        sampler=val_sampler
     )
+    # --- FIN: Cambios para DDP DataLoader ---
 
-    logger.info(f"Dataset de harmonización cargado: {len(train_dataset)} train, {len(val_dataset)} val")
+    if rank == 0: logger.info(f"Dataset de harmonización cargado: {len(train_dataset)} train, {len(val_dataset)} val")
 
-    # Crear modelo de harmonización
-    logger.info("Inicializando modelo U-Net Harmonizer...")
-    harmonizer = UNetHarmonizer(pretrained=True, use_attention=True)
+    if rank == 0: logger.info("Inicializando modelo U-Net Harmonizer...")
+    harmonizer = UNetHarmonizer(pretrained=True, use_attention=True).to(config['device'])
+    
+    # --- INICIO: Envolver modelo con DDP ---
+    harmonizer = DDP(harmonizer, device_ids=[device_id])
+    # --- FIN: Envolver modelo con DDP ---
 
-    # Contar parámetros
-    total_params = sum(p.numel() for p in harmonizer.parameters())
-    trainable_params = sum(p.numel() for p in harmonizer.parameters() if p.requires_grad)
-    logger.info(f"Parámetros totales del harmonizer: {total_params:,}")
-    logger.info(f"Parámetros entrenables del harmonizer: {trainable_params:,}")
+    if rank == 0:
+        total_params = sum(p.numel() for p in harmonizer.parameters())
+        trainable_params = sum(p.numel() for p in harmonizer.parameters() if p.requires_grad)
+        logger.info(f"Parámetros totales del harmonizer: {total_params:,}")
+        logger.info(f"Parámetros entrenables del harmonizer: {trainable_params:,}")
 
-    # Crear trainer de harmonización
     harmonization_trainer = HarmonizationTrainer(
         model=harmonizer,
         train_loader=train_loader,
         val_loader=val_loader,
         device=config['device'],
-        config=config
+        config=config,
+        rank=rank
     )
 
-    # Entrenar modelo de harmonización
     harmonization_trainer.train(config['num_epochs'])
 
-    logger.info("Entrenamiento de harmonización completado exitosamente!")
+    if rank == 0: logger.info("Entrenamiento de harmonización completado exitosamente!")
+    
+    dist.destroy_process_group()
     return True
 
 
@@ -1037,7 +945,13 @@ class HarmonizationInference:
         # Cargar modelo entrenado
         if os.path.exists(model_path):
             checkpoint = torch.load(model_path, map_location=device)
-            self.model.load_state_dict(checkpoint['model_state_dict'])
+            # Cargar el state_dict del modelo subyacente si fue guardado desde DDP
+            state_dict = checkpoint['model_state_dict']
+            if isinstance(self.model, DDP):
+                self.model.module.load_state_dict(state_dict)
+            else:
+                self.model.load_state_dict(state_dict)
+
             self.model.to(device)
             self.model.eval()
             print(f"Modelo de harmonización cargado: {model_path}")
@@ -1089,38 +1003,44 @@ class HarmonizationInference:
 
 
 if __name__ == "__main__":
-    # Pruebas del módulo de harmonización
-    print("=== PRUEBAS DEL MÓDULO DE HARMONIZACIÓN ===\n")
-
-    tests = [
-        ("Forward pass del harmonizer", test_harmonizer_forward),
-        ("Dataset de harmonización", test_harmonization_dataset),
-    ]
-
-    results = {}
-
-    for test_name, test_func in tests:
-        print(f"📋 {test_name}...")
-        try:
-            results[test_name] = test_func()
-        except Exception as e:
-            print(f"❌ Error en {test_name}: {e}")
-            results[test_name] = False
-
-    # Resumen
-    print(f"\n" + "=" * 50)
-    print("📋 RESUMEN DE PRUEBAS DE HARMONIZACIÓN:")
-
-    all_passed = True
-    for test_name, passed in results.items():
-        status = "✅" if passed else "❌"
-        print(f"   {status} {test_name}")
-        if not passed:
-            all_passed = False
-
-    if all_passed:
-        print(f"\n🎉 ¡TODAS LAS PRUEBAS DE HARMONIZACIÓN EXITOSAS!")
-        print(f"🎨 El módulo de harmonización está listo para usar")
+    # --- INICIO: Llamada a la función de entrenamiento ---
+    # Comprobamos si el script se está ejecutando con torchrun
+    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+        train_harmonization_model()
     else:
-        print(f"\n⚠️  Algunas pruebas fallaron")
-        print(f"🔧 Revisa los errores antes de continuar")
+        # --- FIN: Llamada a la función de entrenamiento ---
+        # Pruebas del módulo de harmonización
+        print("=== PRUEBAS DEL MÓDULO DE HARMONIZACIÓN ===\n")
+
+        tests = [
+            ("Forward pass del harmonizer", test_harmonizer_forward),
+            ("Dataset de harmonización", test_harmonization_dataset),
+        ]
+
+        results = {}
+
+        for test_name, test_func in tests:
+            print(f"📋 {test_name}...")
+            try:
+                results[test_name] = test_func()
+            except Exception as e:
+                print(f"❌ Error en {test_name}: {e}")
+                results[test_name] = False
+
+        # Resumen
+        print(f"\n" + "=" * 50)
+        print("📋 RESUMEN DE PRUEBAS DE HARMONIZACIÓN:")
+
+        all_passed = True
+        for test_name, passed in results.items():
+            status = "✅" if passed else "❌"
+            print(f"   {status} {test_name}")
+            if not passed:
+                all_passed = False
+
+        if all_passed:
+            print(f"\n🎉 ¡TODAS LAS PRUEBAS DE HARMONIZACIÓN EXITOSAS!")
+            print(f"🎨 El módulo de harmonización está listo para usar")
+        else:
+            print(f"\n⚠️  Algunas pruebas fallaron")
+            print(f"🔧 Revisa los errores antes de continuar")
