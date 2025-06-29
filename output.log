@@ -1,8 +1,23 @@
-Probando forward pass del modelo...
-✓ Forward pass exitoso!
-  Input shape: torch.Size([1, 3, 384, 384])
-  Output shape: torch.Size([1, 4, 384, 384])
-  Expected output shape: (1, 4, 384, 384)
-✓ Dimensiones de salida correctas
-Modelo verificado. Procediendo con el entrenamiento...
+🚀 INICIALIZANDO SISTEMA U-NET
+========================================
+🚀 INICIALIZANDO EXPERIMENTO
+==================================================
+✅ Reproducibilidad configurada (seed: 42)
+✅ Directorios del experimento creados/verificados
+🔍 INFORMACIÓN DEL SISTEMA:
+   - Experimento: U-Net Background Removal with Harmonization v2.0
+   - Autores: Luis Huacho, Dominick Alvarez
+   - Institución: Maestría en Informática, PUCP
+   - Dispositivo: cuda
+   - PyTorch: 2.7.0+cu126
+   - CUDA disponible: True
+   - GPU: NVIDIA RTX 6000 Ada Generation
+   - Memoria GPU: 51.0 GB
+   - Fecha: 2025-06-25 10:25:15
+⚠️  Warnings suprimidos
+==================================================
+✅ Experimento inicializado correctamente
 
+
+❌ Modo no reconocido: train
+💡 Usa 'python main.py help' para ver opciones disponibles

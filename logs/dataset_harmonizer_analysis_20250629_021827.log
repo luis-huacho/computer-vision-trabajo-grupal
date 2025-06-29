@@ -1,0 +1,89 @@
+2025-06-29 02:18:27,805 - INFO - Iniciando análisis del dataset de harmonización
+2025-06-29 02:18:27,805 - INFO - Log guardado en: logs/dataset_harmonizer_analysis_20250629_021827.log
+2025-06-29 02:18:27,805 - INFO - === ANÁLISIS DE ESTRUCTURA DEL DATASET ===
+2025-06-29 02:18:27,805 - INFO - Directorio de foregrounds: dataset/foregrounds
+2025-06-29 02:18:27,805 - INFO - Directorio de backgrounds: dataset/backgrounds
+2025-06-29 02:18:27,806 - INFO - ✅ Directorio foregrounds existe
+2025-06-29 02:18:27,806 - INFO - 📁 Archivos de foreground encontrados: 1998
+2025-06-29 02:18:27,806 - INFO -    1. fg_circle_005_0091.png
+2025-06-29 02:18:27,806 - INFO -    2. fg_person_002_0002.png
+2025-06-29 02:18:27,806 - INFO -    3. fg_rectangle_008_0095.png
+2025-06-29 02:18:27,806 - INFO -    4. fg_person_001_0068.png
+2025-06-29 02:18:27,806 - INFO -    5. fg_polygon_013_0067.png
+2025-06-29 02:18:27,806 - INFO -    6. fg_complex_017_0072.png
+2025-06-29 02:18:27,806 - INFO -    7. fg_circle_004_0020.png
+2025-06-29 02:18:27,806 - INFO -    8. fg_ellipse_011_0045.png
+2025-06-29 02:18:27,806 - INFO -    9. fg_person_000_0085.png
+2025-06-29 02:18:27,806 - INFO -    10. fg_person_002_0095.png
+2025-06-29 02:18:27,806 - INFO -    ... y 1988 más
+2025-06-29 02:18:27,810 - INFO - ✅ Directorio backgrounds existe
+2025-06-29 02:18:27,810 - INFO - 📁 Archivos de background encontrados: 10000
+2025-06-29 02:18:27,810 - INFO -    1. bg_coco_001007_03.jpg
+2025-06-29 02:18:27,810 - INFO -    2. bg_coco_001288_03.jpg
+2025-06-29 02:18:27,810 - INFO -    3. bg_coco_000159_03.jpg
+2025-06-29 02:18:27,810 - INFO -    4. bg_coco_000249_02.jpg
+2025-06-29 02:18:27,810 - INFO -    5. bg_coco_001673_01.jpg
+2025-06-29 02:18:27,810 - INFO -    6. bg_coco_001051_02.jpg
+2025-06-29 02:18:27,810 - INFO -    7. bg_coco_000436_02.jpg
+2025-06-29 02:18:27,810 - INFO -    8. bg_coco_000419_00.jpg
+2025-06-29 02:18:27,810 - INFO -    9. bg_coco_001506_01.jpg
+2025-06-29 02:18:27,810 - INFO -    10. bg_coco_001409_02.jpg
+2025-06-29 02:18:27,810 - INFO -    ... y 9990 más
+2025-06-29 02:18:27,810 - INFO - 📊 Tamaño calculado del dataset: 3996
+2025-06-29 02:18:27,810 - INFO -    (foregrounds × 2 = 1998 × 2)
+2025-06-29 02:18:27,810 - INFO - 
+=== ANÁLISIS DE PROPIEDADES DE IMÁGENES ===
+2025-06-29 02:18:27,810 - INFO - 📸 Analizando imágenes de foreground...
+2025-06-29 02:18:27,813 - INFO -    1. fg_circle_005_0091.png: (384, 384, 4), 4 canales, con alpha
+2025-06-29 02:18:27,816 - INFO -    2. fg_person_002_0002.png: (384, 384, 4), 4 canales, con alpha
+2025-06-29 02:18:27,818 - INFO -    3. fg_rectangle_008_0095.png: (384, 384, 4), 4 canales, con alpha
+2025-06-29 02:18:27,821 - INFO -    4. fg_person_001_0068.png: (384, 384, 4), 4 canales, con alpha
+2025-06-29 02:18:27,823 - INFO -    5. fg_polygon_013_0067.png: (384, 384, 4), 4 canales, con alpha
+2025-06-29 02:18:27,823 - INFO - 🖼️ Analizando imágenes de background...
+2025-06-29 02:18:27,824 - INFO -    1. bg_coco_001007_03.jpg: (384, 384, 3), 3 canales
+2025-06-29 02:18:27,824 - INFO -    2. bg_coco_001288_03.jpg: (384, 384, 3), 3 canales
+2025-06-29 02:18:27,825 - INFO -    3. bg_coco_000159_03.jpg: (384, 384, 3), 3 canales
+2025-06-29 02:18:27,825 - INFO -    4. bg_coco_000249_02.jpg: (384, 384, 3), 3 canales
+2025-06-29 02:18:27,826 - INFO -    5. bg_coco_001673_01.jpg: (384, 384, 3), 3 canales
+2025-06-29 02:18:27,826 - INFO - 
+=== ANÁLISIS DE DIVISIÓN TRAIN/VAL ===
+2025-06-29 02:18:27,826 - INFO - 📊 División del dataset:
+2025-06-29 02:18:27,826 - INFO -    Total samples: 3996
+2025-06-29 02:18:27,826 - INFO -    Train samples: 3196 (80%)
+2025-06-29 02:18:27,826 - INFO -    Val samples: 800 (20%)
+2025-06-29 02:18:27,826 - INFO - 
+📦 Análisis de batches (batch_size=2):
+2025-06-29 02:18:27,826 - INFO -    Train batches: 1598
+2025-06-29 02:18:27,826 - INFO -    Val batches (drop_last=True): 400
+2025-06-29 02:18:27,826 - INFO -    Val batches (drop_last=False): 400
+2025-06-29 02:18:27,826 - INFO - 
+=== PRUEBA DE CARGA DEL DATASET ===
+2025-06-29 02:18:29,293 - INFO - 🔄 Creando instancia del dataset...
+2025-06-29 02:18:29,298 - INFO - ✅ Dataset creado exitosamente
+2025-06-29 02:18:29,298 - INFO - 📏 Longitud reportada: 3996
+2025-06-29 02:18:29,298 - INFO - 🔄 Cargando muestra de prueba...
+2025-06-29 02:18:29,313 - INFO - ✅ Muestra cargada exitosamente
+2025-06-29 02:18:29,313 - INFO - 📊 Composite shape: torch.Size([3, 384, 384])
+2025-06-29 02:18:29,313 - INFO - 📊 Target shape: torch.Size([3, 384, 384])
+2025-06-29 02:18:29,313 - INFO - 📊 Composite dtype: torch.float32
+2025-06-29 02:18:29,313 - INFO - 📊 Target dtype: torch.float32
+2025-06-29 02:18:29,315 - INFO - 📊 Composite range: [0.012, 1.000]
+2025-06-29 02:18:29,316 - INFO - 📊 Target range: [0.012, 1.000]
+2025-06-29 02:18:29,316 - INFO - 
+============================================================
+2025-06-29 02:18:29,316 - INFO - 📋 RESUMEN DEL ANÁLISIS DEL DATASET
+2025-06-29 02:18:29,316 - INFO - ============================================================
+2025-06-29 02:18:29,316 - INFO - 🎯 Estado general del dataset: ✅ OK
+2025-06-29 02:18:29,316 - INFO - 📊 Estadísticas:
+2025-06-29 02:18:29,316 - INFO -    - Foregrounds: 1998
+2025-06-29 02:18:29,316 - INFO -    - Backgrounds: 10000
+2025-06-29 02:18:29,316 - INFO -    - Tamaño dataset: 3996 samples
+2025-06-29 02:18:29,316 - INFO -    - Train/Val: 3196/800
+2025-06-29 02:18:29,316 - INFO - ✅ No se detectaron problemas críticos
+2025-06-29 02:18:29,316 - INFO - 
+💡 Recomendaciones:
+2025-06-29 02:18:29,316 - INFO - 
+📁 Reporte completo guardado en: logs/dataset_harmonizer_analysis_20250629_021827.log
+2025-06-29 02:18:29,319 - INFO - 📄 Datos del análisis guardados en: logs/dataset_harmonizer_analysis_20250629_021827_data.json
+2025-06-29 02:18:29,319 - INFO - 
+✅ Análisis completado exitosamente!
