@@ -103,24 +103,56 @@ def train_segmentation():
 
 
 def train_harmonization():
-    """Ejecuta el entrenamiento de harmonización."""
+    """Ejecuta el entrenamiento de harmonización usando torchrun para multi-GPU."""
     try:
-        from harmonization import train_harmonization_model
-        from settings import get_harmonization_config
-
-        print("🎨 ENTRENAMIENTO DE HARMONIZACIÓN")
+        import subprocess
+        import torch
+        
+        print("🎨 ENTRENAMIENTO DE HARMONIZACIÓN (MULTI-GPU)")
         print("=" * 40)
-
-        config = get_harmonization_config()
-        success = train_harmonization_model(config)
-
-        if success:
-            print("✅ Entrenamiento de harmonización completado!")
+        
+        # Verificar disponibilidad de GPUs
+        if not torch.cuda.is_available():
+            print("❌ CUDA no disponible. Se requiere GPU para entrenamiento distribuido.")
+            return
+            
+        gpu_count = torch.cuda.device_count()
+        print(f"🔍 GPUs detectadas: {gpu_count}")
+        
+        if gpu_count < 2:
+            print("⚠️  Solo se detectó 1 GPU. Usando entrenamiento distribuido con 1 GPU...")
+            nproc = 1
         else:
-            print("❌ Error en el entrenamiento de harmonización")
+            nproc = min(gpu_count, 2)  # Usar máximo 2 GPUs
+            print(f"🚀 Usando {nproc} GPUs para entrenamiento distribuido")
+        
+        # Comando torchrun
+        cmd = [
+            "torchrun",
+            f"--nproc_per_node={nproc}",
+            "harmonization.py"
+        ]
+        
+        print(f"💻 Ejecutando comando: {' '.join(cmd)}")
+        print("⏳ Iniciando entrenamiento distribuido...")
+        print("-" * 40)
+        
+        # Ejecutar torchrun
+        result = subprocess.run(cmd, capture_output=False, text=True)
+        
+        print("-" * 40)
+        if result.returncode == 0:
+            print("✅ Entrenamiento de harmonización completado exitosamente!")
+        else:
+            print(f"❌ Error en el entrenamiento. Código de salida: {result.returncode}")
 
     except ImportError as e:
-        print(f"❌ Módulo harmonization.py no disponible: {e}")
+        print(f"❌ Módulos necesarios no disponibles: {e}")
+    except FileNotFoundError:
+        print("❌ 'torchrun' no encontrado. Asegúrate de tener PyTorch instalado correctamente.")
+        print("💡 Instala PyTorch con: pip install torch torchvision")
+    except Exception as e:
+        print(f"❌ Error ejecutando entrenamiento distribuido: {e}")
 
 
 def run_demo():
