@@ -202,7 +202,7 @@ class HarmonizationDataset(Dataset):
         self.image_size = image_size
 
         # Import ImageProcessor desde main
-        from main import ImageProcessor
+        from utils import ImageProcessor
         self.processor = ImageProcessor()
 
         # Obtener listas de archivos
