@@ -805,7 +805,7 @@ def train_harmonization_model(config=None):
 
     if config is None:
         config = {
-            'batch_size': 8,
+            'batch_size': 2,  # Reducir batch_size para datasets pequeños
             'learning_rate': 5e-5,
             'weight_decay': 1e-6,
             'num_epochs': 50,
@@ -874,7 +874,7 @@ def train_harmonization_model(config=None):
         shuffle=False,
         num_workers=config['num_workers'],
         pin_memory=config['pin_memory'],
-        drop_last=True,
+        drop_last=False,  # No descartar último batch en validación
         sampler=val_sampler,
         timeout=60
     )
