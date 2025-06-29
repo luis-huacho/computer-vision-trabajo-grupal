@@ -34,61 +34,41 @@ class UNetHarmonizer(nn.Module):
         # Import de clases necesarias desde main
         from models import AttentionBlock, DoubleConv
 
-        # Encoder usando VGG16 pre-entrenado para mejor extracción de características de color
-        if pretrained:
-            try:
-                vgg = vgg16(pretrained=True).features
-                self.encoder_layers = []
-
-                # Extraer layers específicos de VGG16
-                self.conv1 = nn.Sequential(*list(vgg.children())[:4])  # 64 channels
-                self.conv2 = nn.Sequential(*list(vgg.children())[4:9])  # 128 channels
-                self.conv3 = nn.Sequential(*list(vgg.children())[9:16])  # 256 channels
-                self.conv4 = nn.Sequential(*list(vgg.children())[16:23])  # 512 channels
-                self.conv5 = nn.Sequential(*list(vgg.children())[23:30])  # 512 channels
-            except:
-                # Fallback si no se puede cargar VGG pre-entrenado
-                pretrained = False
-
-        if not pretrained:
-            # Encoder básico si no se usa pre-entrenado
-            self.conv1 = self._make_layer(3, 64)
-            self.conv2 = self._make_layer(64, 128)
-            self.conv3 = self._make_layer(128, 256)
-            self.conv4 = self._make_layer(256, 512)
-            self.conv5 = self._make_layer(512, 512)
-
+        # Usar siempre encoder básico para evitar problemas de dimensiones
+        self.conv1 = self._make_layer(3, 64)
+        self.conv2 = self._make_layer(64, 128)
+        self.conv3 = self._make_layer(128, 256)
+        self.conv4 = self._make_layer(256, 512)
+        
+        # Reducir pooling - solo 4 niveles para mantener dimensiones suficientes
         self.pool = nn.MaxPool2d(2, 2)
 
         # Bottleneck
         self.bottleneck = DoubleConv(512, 1024, dropout_rate=0.2)
 
-        # Decoder - cambiar a Upsample + Conv para evitar checkerboard artifacts
+        # Decoder - solo 4 niveles para coincidir con encoder
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
         
         self.up_conv1 = nn.Conv2d(1024, 512, kernel_size=3, padding=1)
         self.up_conv2 = nn.Conv2d(512, 256, kernel_size=3, padding=1)
         self.up_conv3 = nn.Conv2d(256, 128, kernel_size=3, padding=1)
         self.up_conv4 = nn.Conv2d(128, 64, kernel_size=3, padding=1)
-        self.up_conv5 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
 
-        # Attention gates para harmonización
+        # Attention gates para harmonización - solo 4 niveles
         if self.use_attention:
             self.att1 = AttentionBlock(512, 512, 256)
             self.att2 = AttentionBlock(256, 256, 128)
             self.att3 = AttentionBlock(128, 128, 64)
             self.att4 = AttentionBlock(64, 64, 32)
-            self.att5 = AttentionBlock(32, 32, 16)
 
-        # Convoluciones del decoder
+        # Convoluciones del decoder - solo 4 niveles
         self.dec_conv1 = DoubleConv(1024, 512)
         self.dec_conv2 = DoubleConv(512, 256)
         self.dec_conv3 = DoubleConv(256, 128)
         self.dec_conv4 = DoubleConv(128, 64)
-        self.dec_conv5 = DoubleConv(64, 32)
 
         # Capa final - 3 canales RGB armonizados
-        self.final_conv = nn.Conv2d(32, 3, kernel_size=1)
+        self.final_conv = nn.Conv2d(64, 3, kernel_size=1)
 
     def _make_layer(self, in_channels, out_channels):
         """Crea una capa de convolución básica."""
@@ -108,7 +88,7 @@ class UNetHarmonizer(nn.Module):
         return x
 
     def forward(self, x):
-        # Encoder path con skip connections
+        # Encoder path con skip connections - solo 4 niveles
         skip_connections = []
 
         # Encoder
@@ -128,14 +108,10 @@ class UNetHarmonizer(nn.Module):
         skip_connections.append(x4)
         x4_pool = self.pool(x4)
 
-        x5 = self.conv5(x4_pool)  # 512 channels
-        skip_connections.append(x5)
-        x5_pool = self.pool(x5)
-
         # Bottleneck
-        bottleneck = self.bottleneck(x5_pool)
+        bottleneck = self.bottleneck(x4_pool)
 
-        # Decoder path
+        # Decoder path - solo 4 niveles
         skips = skip_connections[::-1]  # Invertir orden
 
         # Up 1
@@ -165,7 +141,7 @@ class UNetHarmonizer(nn.Module):
         up3 = torch.cat([up3, skip], dim=1)
         up3 = self.dec_conv3(up3)
 
-        # Up 4
+        # Up 4 (final)
         up4 = self.upsample(up3)
         up4 = self.up_conv4(up4)
         skip = self._match_tensor_size(skips[3], up4)
@@ -174,17 +150,8 @@ class UNetHarmonizer(nn.Module):
         up4 = torch.cat([up4, skip], dim=1)
         up4 = self.dec_conv4(up4)
 
-        # Up 5 (final)
-        up5 = self.upsample(up4)
-        up5 = self.up_conv5(up5)
-        skip = self._match_tensor_size(skips[4], up5)
-        if self.use_attention:
-            skip = self.att5(skip, up5)
-        up5 = torch.cat([up5, skip], dim=1)
-        up5 = self.dec_conv5(up5)
-
         # Output final
-        output = self.final_conv(up5)
+        output = self.final_conv(up4)
 
         # Aplicar tanh para rango [-1, 1] y luego sigmoid para [0, 1]
         output = torch.tanh(output)
