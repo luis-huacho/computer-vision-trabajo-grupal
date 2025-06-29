@@ -431,7 +431,7 @@ class HarmonizationTrainer:
         self.loss_calculator = HarmonizationLossCalculator()
 
         # Import ModelCheckpoint desde main
-        from main import ModelCheckpoint
+        from utils import ModelCheckpoint
         self.checkpoint_manager = ModelCheckpoint()
 
         # Historial de entrenamiento
