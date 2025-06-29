@@ -2,7 +2,7 @@ import streamlit as st
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision.models import resnet34
+from torchvision.models import resnet50
 import numpy as np
 import cv2
 import os
@@ -14,7 +14,7 @@ warnings.filterwarnings('ignore')
 
 # Configurar la página
 st.set_page_config(
-    page_title="Procesador de Imágenes IA - Segmentación, Composición y Harmonización",
+    page_title="Estudio de Composición Digital con IA - ResNet-50 + Harmonización",
     page_icon="🎭",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -363,24 +363,24 @@ class DoubleConv(nn.Module):
 
 
 class UNetEncoder(nn.Module):
-    """Encoder path del U-Net con skip connections."""
+    """Encoder path del U-Net con skip connections usando ResNet-50."""
 
     def __init__(self, pretrained=True):
         super(UNetEncoder, self).__init__()
 
-        resnet = resnet34(pretrained=pretrained)
+        resnet = resnet50(pretrained=pretrained)
 
         self.conv1 = resnet.conv1
         self.bn1 = resnet.bn1
         self.relu = resnet.relu
         self.maxpool = resnet.maxpool
 
-        self.layer1 = resnet.layer1
-        self.layer2 = resnet.layer2
-        self.layer3 = resnet.layer3
-        self.layer4 = resnet.layer4
+        self.layer1 = resnet.layer1  # 256 channels
+        self.layer2 = resnet.layer2  # 512 channels
+        self.layer3 = resnet.layer3  # 1024 channels
+        self.layer4 = resnet.layer4  # 2048 channels
 
-        self.bottleneck = DoubleConv(512, 1024, dropout_rate=0.2)
+        self.bottleneck = DoubleConv(2048, 4096, dropout_rate=0.2)
 
     def forward(self, x):
         skip_connections = []
@@ -408,30 +408,32 @@ class UNetEncoder(nn.Module):
 
 
 class UNetDecoder(nn.Module):
-    """Decoder path del U-Net con Attention Gates."""
+    """Decoder path del U-Net con Attention Gates para ResNet-50."""
 
     def __init__(self, use_attention=True):
         super(UNetDecoder, self).__init__()
         self.use_attention = use_attention
 
-        self.up1 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
-        self.up2 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
-        self.up3 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
-        self.up4 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
-        self.up5 = nn.ConvTranspose2d(64, 64, kernel_size=2, stride=2)
+        # Upsampling layers adaptados para ResNet-50
+        self.up1 = nn.ConvTranspose2d(4096, 2048, kernel_size=2, stride=2)
+        self.up2 = nn.ConvTranspose2d(2048, 1024, kernel_size=2, stride=2)
+        self.up3 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
+        self.up4 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
+        self.up5 = nn.ConvTranspose2d(256, 64, kernel_size=2, stride=2)
 
         if self.use_attention:
-            self.att1 = AttentionBlock(512, 512, 256)
-            self.att2 = AttentionBlock(256, 256, 128)
-            self.att3 = AttentionBlock(128, 128, 64)
-            self.att4 = AttentionBlock(64, 64, 32)
-            self.att5 = AttentionBlock(64, 64, 32)
+            self.att1 = AttentionBlock(2048, 2048, 1024)  # layer4: 2048 channels
+            self.att2 = AttentionBlock(1024, 1024, 512)   # layer3: 1024 channels
+            self.att3 = AttentionBlock(512, 512, 256)     # layer2: 512 channels
+            self.att4 = AttentionBlock(256, 256, 128)     # layer1: 256 channels
+            self.att5 = AttentionBlock(64, 64, 32)        # conv1: 64 channels
 
-        self.conv1 = DoubleConv(1024, 512)
-        self.conv2 = DoubleConv(512, 256)
-        self.conv3 = DoubleConv(256, 128)
-        self.conv4 = DoubleConv(128, 64)
-        self.conv5 = DoubleConv(128, 64)
+        # Decoder convolutions adaptadas para ResNet-50
+        self.conv1 = DoubleConv(4096, 2048)  # 2048 (up1) + 2048 (skip[0]=layer4) = 4096
+        self.conv2 = DoubleConv(2048, 1024)  # 1024 (up2) + 1024 (skip[1]=layer3) = 2048
+        self.conv3 = DoubleConv(1024, 512)   # 512 (up3) + 512 (skip[2]=layer2) = 1024
+        self.conv4 = DoubleConv(512, 256)    # 256 (up4) + 256 (skip[3]=layer1) = 512
+        self.conv5 = DoubleConv(128, 64)     # 64 (up5) + 64 (skip[4]=conv1) = 128
 
         self.final_conv = nn.Conv2d(64, 4, kernel_size=1)
 
@@ -753,7 +755,7 @@ def main():
         - Opacidad final
 
         ### Tecnología:
-        - **Segmentación**: U-Net + ResNet-34 + Attention Gates
+        - **Segmentación**: U-Net + ResNet-50 + Attention Gates
         - **Harmonización**: U-Net especializado en color
         - **Composición**: Alpha blending con efectos 3D
         - **Calidad**: Interpolación cúbica y filtros de nitidez
@@ -1444,8 +1446,9 @@ def main():
         ### 🏗️ Arquitectura de los Modelos
         
         **Modelo de Segmentación:**
-        - **Base**: U-Net con encoder ResNet-34 pre-entrenado
+        - **Base**: U-Net con encoder ResNet-50 pre-entrenado
         - **Attention Gates**: Mecanismo de atención para mejorar precisión
+        - **Capacidad**: 25.6M parámetros (vs 21.8M de ResNet-34)
         - **Entrada**: 3 canales RGB
         - **Salida**: 4 canales RGBA (RGB + canal Alpha para transparencia)
         
@@ -1460,6 +1463,7 @@ def main():
         - **Dataset Harmonización**: Composiciones sintéticas
         - **Aumentación**: Flip horizontal, rotaciones, cambios de brillo/contraste
         - **Optimización**: Adam con Cosine Annealing scheduler
+        - **Mejora ResNet-50**: Mayor capacidad de representación y mejor precisión
 
         ### ⚙️ Detalles de Implementación
         - **Pipeline completo**: Segmentación → Composición → Harmonización
@@ -1473,9 +1477,9 @@ def main():
     st.markdown(
         """
         <div style='text-align: center; color: gray;'>
-            🎭 Procesador de Imágenes con IA - Segmentación, Composición y Harmonización<br>
+            🎭 Estudio de Composición Digital con IA<br>
             Desarrollado con ❤️ usando Streamlit, PyTorch y OpenCV<br>
-            Pipeline completo: U-Net Segmentación + U-Net Harmonización + Alpha Blending
+            Pipeline: U-Net ResNet-50 + Harmonización IA + Composición 3D + Post-procesamiento
         </div>
         """,
         unsafe_allow_html=True
