@@ -1,0 +1,16 @@
+2025-06-29 02:02:13,280 - INFO - 📊 Backgrounds disponibles: 200
+2025-06-29 02:02:13,280 - INFO - 🎨 CREANDO FOREGROUNDS SINTÉTICOS MEJORADOS
+2025-06-29 02:02:13,280 - INFO -    Target: dataset/foregrounds
+2025-06-29 02:02:13,280 - INFO -    Cantidad: 100
+2025-06-29 02:02:13,280 - INFO -    Creando 30 siluetas de persona...
+2025-06-29 02:02:13,565 - INFO -    Creando 70 formas geométricas...
+2025-06-29 02:02:13,991 - INFO -    ✅ Creados 100 foregrounds mejorados
+2025-06-29 02:02:13,991 - INFO - 
+============================================================
+2025-06-29 02:02:13,991 - INFO - 📋 REPORTE FINAL
+2025-06-29 02:02:13,991 - INFO - ============================================================
+2025-06-29 02:02:13,991 - INFO - ✅ Foregrounds creados: 100
+2025-06-29 02:02:13,991 - INFO - ✅ Backgrounds disponibles: 200
+2025-06-29 02:02:13,991 - INFO - 📊 Nuevo tamaño del dataset: 200
+2025-06-29 02:02:13,991 - INFO - 📊 Train/Val: 160/40
+2025-06-29 02:02:13,991 - INFO - 🎯 Dataset mejorado exitosamente!
