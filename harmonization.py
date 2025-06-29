@@ -880,7 +880,10 @@ def train_harmonization_model(config=None):
     )
     # --- FIN: Cambios para DDP DataLoader ---
 
-    if rank == 0: logger.info(f"Dataset de harmonización cargado: {len(train_dataset)} train, {len(val_dataset)} val")
+    if rank == 0:
+        logger.info(f"Dataset de harmonización cargado: {len(train_dataset)} train, {len(val_dataset)} val")
+        logger.info(f"Número de batches en train_loader: {len(train_loader)}")
+        logger.info(f"Número de batches en val_loader: {len(val_loader)}")
 
     if rank == 0: logger.info("Inicializando modelo U-Net Harmonizer...")
     harmonizer = UNetHarmonizer(pretrained=True, use_attention=True).to(config['device'])
