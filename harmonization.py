@@ -62,10 +62,10 @@ class UNetHarmonizer(nn.Module):
             self.att4 = AttentionBlock(64, 64, 32)
 
         # Convoluciones del decoder - ajustar canales de entrada después de concatenación
-        self.dec_conv1 = DoubleConv(1024, 512)  # 512 (up1) + 512 (skip) = 1024
-        self.dec_conv2 = DoubleConv(768, 256)   # 256 (up2) + 512 (skip) = 768  
-        self.dec_conv3 = DoubleConv(384, 128)   # 128 (up3) + 256 (skip) = 384
-        self.dec_conv4 = DoubleConv(192, 64)    # 64 (up4) + 128 (skip) = 192
+        self.dec_conv1 = DoubleConv(1024, 512)  # 512 (up1) + 512 (skip[0]=x4) = 1024
+        self.dec_conv2 = DoubleConv(512, 256)   # 256 (up2) + 256 (skip[1]=x3) = 512  
+        self.dec_conv3 = DoubleConv(384, 128)   # 128 (up3) + 256 (skip[2]=x2) = 384
+        self.dec_conv4 = DoubleConv(192, 64)    # 64 (up4) + 128 (skip[3]=x1) = 192
 
         # Capa final - 3 canales RGB armonizados
         self.final_conv = nn.Conv2d(64, 3, kernel_size=1)
