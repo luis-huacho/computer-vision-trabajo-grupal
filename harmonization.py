@@ -222,22 +222,26 @@ class HarmonizationDataset(Dataset):
         return len(self.foreground_files) * 2  # Múltiples combinaciones por foreground
 
     def __getitem__(self, idx):
-        # Seleccionar foreground
-        fg_idx = idx % len(self.foreground_files)
-        foreground_path = os.path.join(self.foreground_dir, self.foreground_files[fg_idx])
-
-        # Seleccionar background aleatorio
-        bg_idx = np.random.randint(0, len(self.background_files))
-        background_path = os.path.join(self.background_dir, self.background_files[bg_idx])
-
         try:
+            # Seleccionar foreground
+            fg_idx = idx % len(self.foreground_files)
+            foreground_path = os.path.join(self.foreground_dir, self.foreground_files[fg_idx])
+
+            # Seleccionar background aleatorio
+            bg_idx = np.random.randint(0, len(self.background_files))
+            background_path = os.path.join(self.background_dir, self.background_files[bg_idx])
+
             # Cargar imágenes
             foreground = cv2.imread(foreground_path, cv2.IMREAD_UNCHANGED)
             background = cv2.imread(background_path, cv2.IMREAD_COLOR)
 
-            if foreground is None or background is None:
-                # Fallback a imagen dummy
+            if foreground is None:
+                # logging.warning(f"No se pudo cargar la imagen de foreground: {foreground_path}")
                 return self._get_dummy_sample()
+            if background is None:
+                # logging.warning(f"No se pudo cargar la imagen de background: {background_path}")
+                return self._get_dummy_sample()
+
 
             # Convertir BGR a RGB
             if foreground.shape[2] == 4:  # RGBA
@@ -251,8 +255,8 @@ class HarmonizationDataset(Dataset):
             background = cv2.cvtColor(background, cv2.COLOR_BGR2RGB)
 
             # Redimensionar
-            foreground = cv2.resize(foreground, (self.image_size, self.image_size))
-            background = cv2.resize(background, (self.image_size, self.image_size))
+            foreground = cv2.resize(foreground, (self.image_size, self.image_size), interpolation=cv2.INTER_AREA)
+            background = cv2.resize(background, (self.image_size, self.image_size), interpolation=cv2.INTER_AREA)
 
             # Crear composición
             composite = self.processor.composite_foreground_background(foreground, background)
@@ -276,7 +280,7 @@ class HarmonizationDataset(Dataset):
                     composite = augmented['image'].astype(np.float32) / 255.0
                     target = augmented['mask'].astype(np.float32) / 255.0
                 except Exception as e:
-                    print(f"Error en transformación: {e}")
+                    # logging.warning(f"Error en transformación para {foreground_path}: {e}")
                     pass
 
             # Convertir a tensores
@@ -286,7 +290,7 @@ class HarmonizationDataset(Dataset):
             return composite_tensor, target_tensor
 
         except Exception as e:
-            print(f"Error procesando {foreground_path}: {e}")
+            # logging.error(f"Error fatal procesando {foreground_path} o {background_path}: {e}", exc_info=True)
             return self._get_dummy_sample()
 
     def _get_dummy_sample(self):
@@ -886,7 +890,8 @@ def train_harmonization_model(config=None):
         num_workers=config['num_workers'],
         pin_memory=config['pin_memory'],
         drop_last=True,
-        sampler=train_sampler
+        sampler=train_sampler,
+        timeout=60
     )
 
     val_loader = DataLoader(
@@ -896,7 +901,8 @@ def train_harmonization_model(config=None):
         num_workers=config['num_workers'],
         pin_memory=config['pin_memory'],
         drop_last=True,
-        sampler=val_sampler
+        sampler=val_sampler,
+        timeout=60
     )
     # --- FIN: Cambios para DDP DataLoader ---
 
@@ -924,12 +930,15 @@ def train_harmonization_model(config=None):
         rank=rank
     )
 
-    harmonization_trainer.train(config['num_epochs'])
-
-    if rank == 0: logger.info("Entrenamiento de harmonización completado exitosamente!")
-    
-    dist.destroy_process_group()
-    return True
+    try:
+        harmonization_trainer.train(config['num_epochs'])
+        if rank == 0: logger.info("Entrenamiento de harmonización completado exitosamente!")
+        return True
+    except Exception as e:
+        if rank == 0: logger.error(f"Error durante el entrenamiento: {e}", exc_info=True)
+        return False
+    finally:
+        dist.destroy_process_group()
 
 
 # Clase para inferencia de harmonización (será importada desde main.py)
