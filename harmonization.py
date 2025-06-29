@@ -32,7 +32,7 @@ class UNetHarmonizer(nn.Module):
         self.use_attention = use_attention
 
         # Import de clases necesarias desde main
-        from main import AttentionBlock, DoubleConv
+        from models import AttentionBlock, DoubleConv
 
         # Encoder usando VGG16 pre-entrenado para mejor extracción de características de color
         if pretrained:
