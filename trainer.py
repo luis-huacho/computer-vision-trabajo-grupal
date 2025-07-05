@@ -350,13 +350,13 @@ def train_segmentation(config=None):
     # Configuración por defecto si no se proporciona
     if config is None:
         config = {
-            'batch_size': 16,
+            'batch_size': 32,
             'learning_rate': 1e-4,
             'weight_decay': 1e-6,
             'num_epochs': 100,
             'image_size': 384,
             'device': f'cuda:{device_id}' if torch.cuda.is_available() else 'cpu',
-            'num_workers': 8,
+            'num_workers': 12,
             'pin_memory': True,
         }
     else:
