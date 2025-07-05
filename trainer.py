@@ -368,11 +368,19 @@ def train_segmentation(config=None):
         logger.setLevel(logging.INFO)
         if not logger.handlers:
             handler = logging.StreamHandler()
-            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+            formatter = logging.Formatter('%(asctime)s - %(levelname)s - [RANK %(rank)s] - %(message)s')
             handler.setFormatter(formatter)
             logger.addHandler(handler)
+        
+        # Imprimir configuración de forma legible
+        logger.info("="*50)
         logger.info("Iniciando entrenamiento de modelo de segmentación")
         logger.info(f"Dispositivo: {config['device']}, World Size: {world_size}")
+        logger.info("Configuración de entrenamiento:")
+        for key, value in config.items():
+            logger.info(f"  - {key}: {value}")
+        logger.info("="*50)
+
     else:
         logger.setLevel(logging.CRITICAL)
 
@@ -430,6 +438,19 @@ def train_segmentation(config=None):
         logger.error("Módulo datasets no disponible")
         return False
 
+    # --- INICIO: Verificación de dataset vacío ---
+    if len(train_dataset) == 0 or len(val_dataset) == 0:
+        if rank == 0:
+            logger.error("Uno o ambos datasets están vacíos. Abortando entrenamiento.")
+            logger.error(f"Tamaños: Train={len(train_dataset)}, Val={len(val_dataset)}")
+        
+        # Sincronizar procesos antes de salir para evitar que otros continúen
+        if is_distributed:
+            dist.barrier()
+        
+        return False
+    # --- FIN: Verificación de dataset vacío ---
+
     # --- INICIO: Crear data loaders con soporte DDP ---
     if is_distributed:
         train_sampler = DistributedSampler(train_dataset, num_replicas=world_size, rank=rank)
@@ -463,6 +484,7 @@ def train_segmentation(config=None):
 
     if rank == 0:
         logger.info(f"Dataset COCO cargado: {len(train_dataset)} train, {len(val_dataset)} val")
+        logger.info(f"DataLoaders listos: {len(train_loader)} batches de entrenamiento, {len(val_loader)} batches de validación")
 
     # Crear modelo
     try:

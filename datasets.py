@@ -8,6 +8,18 @@ import albumentations as A
 from PIL import Image
 import warnings
 
+import warnings
+import logging
+
+# Configurar un logger básico para este módulo
+logger = logging.getLogger(__name__)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
 warnings.filterwarnings('ignore')
 
 
@@ -26,6 +38,14 @@ class COCOPersonDataset(Dataset):
             image_size: Tamaño al que redimensionar las imágenes
             store_metadata: Si guardar metadatos para restaurar tamaño original
         """
+        # Identificador de proceso para logs en entorno distribuido
+        rank = os.environ.get('RANK', 'N/A')
+        self.log_prefix = f'[RANK {rank}] '
+
+        logger.info(f'{self.log_prefix}Inicializando COCOPersonDataset...')
+        logger.info(f'{self.log_prefix}  - COCO Root: {coco_root}')
+        logger.info(f'{self.log_prefix}  - Annotation File: {annotation_file}')
+
         self.coco_root = coco_root
         self.annotation_file = annotation_file
         self.transform = transform
@@ -37,22 +57,32 @@ class COCOPersonDataset(Dataset):
             from utils import ImageProcessor
             self.processor = ImageProcessor()
         except ImportError:
-            print("⚠️  ImageProcessor no disponible desde utils")
+            logger.warning(f'{self.log_prefix}ImageProcessor no disponible desde utils')
             self.processor = None
 
         # Cargar anotaciones COCO
+        if not os.path.exists(annotation_file):
+            logger.error(f'{self.log_prefix}El archivo de anotaciones no existe: {annotation_file}')
+            self.valid_image_ids = []
+            return
+
         with open(annotation_file, 'r') as f:
             self.coco_data = json.load(f)
+        
+        logger.info(f'{self.log_prefix}Anotaciones cargadas. Total de imágenes en JSON: {len(self.coco_data['images'])}')
+        logger.info(f'{self.log_prefix}Total de anotaciones en JSON: {len(self.coco_data['annotations'])}')
 
         # Crear mapeos
         self.images = {img['id']: img for img in self.coco_data['images']}
 
-        # CAMBIO IMPORTANTE: Filtrar solo anotaciones con keypoints válidos (personas)
+        # Filtrar solo anotaciones con keypoints válidos (personas)
         self.annotations = []
+        min_area = 500
         for ann in self.coco_data['annotations']:
-            # Solo incluir anotaciones que tengan keypoints y área > 0
-            if 'keypoints' in ann and ann.get('area', 0) > 500:  # Filtrar personas muy pequeñas
+            if 'keypoints' in ann and ann.get('area', 0) > min_area:
                 self.annotations.append(ann)
+        
+        logger.info(f'{self.log_prefix}Anotaciones filtradas por 'keypoints' y área > {min_area}: {len(self.annotations)} anotaciones válidas')
 
         # Agrupar anotaciones por imagen
         self.image_to_annotations = {}
@@ -65,7 +95,7 @@ class COCOPersonDataset(Dataset):
         # Lista de IDs de imágenes válidas (que tienen personas)
         self.valid_image_ids = list(self.image_to_annotations.keys())
 
-        print(f"Dataset COCO cargado: {len(self.valid_image_ids)} imágenes con personas")
+        logger.info(f'{self.log_prefix}Dataset COCO cargado: {len(self.valid_image_ids)} imágenes con personas encontradas.')
 
     def __len__(self):
         return len(self.valid_image_ids)
