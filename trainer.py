@@ -368,20 +368,22 @@ def train_segmentation(config=None):
         logger.setLevel(logging.INFO)
         if not logger.handlers:
             handler = logging.StreamHandler()
-            formatter = logging.Formatter('%(asctime)s - %(levelname)s - [RANK %(rank)s] - %(message)s')
+            # Formato simple para evitar errores de 'rank' no encontrado
+            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
             handler.setFormatter(formatter)
             logger.addHandler(handler)
         
         # Imprimir configuración de forma legible
         logger.info("="*50)
-        logger.info("Iniciando entrenamiento de modelo de segmentación")
-        logger.info(f"Dispositivo: {config['device']}, World Size: {world_size}")
-        logger.info("Configuración de entrenamiento:")
+        logger.info(f"[RANK {rank}] Iniciando entrenamiento de modelo de segmentación")
+        logger.info(f"[RANK {rank}] Dispositivo: {config['device']}, World Size: {world_size}")
+        logger.info(f"[RANK {rank}] Configuración de entrenamiento:")
         for key, value in config.items():
-            logger.info(f"  - {key}: {value}")
+            logger.info(f"[RANK {rank}]   - {key}: {value}")
         logger.info("="*50)
 
     else:
+        # Para otros ranks, podemos mantenerlo simple o no loggear nada
         logger.setLevel(logging.CRITICAL)
 
     # Verificar dataset COCO

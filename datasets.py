@@ -82,7 +82,7 @@ class COCOPersonDataset(Dataset):
             if 'keypoints' in ann and ann.get('area', 0) > min_area:
                 self.annotations.append(ann)
         
-        logger.info(f'{self.log_prefix}Anotaciones filtradas por 'keypoints' y área > {min_area}: {len(self.annotations)} anotaciones válidas')
+        logger.info(f"{self.log_prefix}Anotaciones filtradas por 'keypoints' y área > {min_area}: {len(self.annotations)} anotaciones válidas")
 
         # Agrupar anotaciones por imagen
         self.image_to_annotations = {}
