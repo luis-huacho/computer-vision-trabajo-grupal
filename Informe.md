@@ -72,6 +72,8 @@ Los siguientes parámetros han sido modificados en el archivo `trainer.py`:
 *   **`num_workers`**: Se ha aumentado de `8` a **`12`**.
     *   **Justificación**: Incrementar el número de workers puede acelerar el pipeline de carga de datos, asegurando que la GPU no se quede inactiva esperando los lotes de imágenes. Esto es especialmente útil si la CPU del servidor tiene suficientes núcleos para manejar la carga adicional.
 
+*   Se hizo rollback, porque la GPU se saturaba.
+
 *   **`image_size`**: Se mantiene en **`384x384`**.
     *   **Justificación**: Aunque aumentar la resolución podría mejorar la precisión en detalles finos, también incrementaría drásticamente (de forma cuadrática) el uso de memoria VRAM. Para evitar un error `CUDA out of memory`, se ha decidido no aumentar la resolución de la imagen al mismo tiempo que se aumenta el `batch_size`.
 
