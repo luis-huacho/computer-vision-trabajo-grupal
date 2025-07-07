@@ -9,6 +9,7 @@ import os
 from PIL import Image
 import io
 import warnings
+from smartComposition import smart_composite_arrays
 
 warnings.filterwarnings('ignore')
 
@@ -943,6 +944,15 @@ def main():
                     blur_background=blur_background,
                     blur_strength=blur_strength
                 )
+
+                # Añadimos composición con IC LIGHT
+                composition_rgb = smart_composite_arrays(
+                    foreground_rgb=foreground_rgba,
+                    background_rgb=bg_resized, 
+                    model_quality="best",  # "fast", "quality", o "best"
+                    shadow_intensity=0.15,
+                )
+
                 composition_result = composition_rgb
                 
                 progress_bar.progress(85)
