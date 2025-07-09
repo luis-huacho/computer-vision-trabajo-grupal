@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision.models import resnet34
+from torchvision.models import resnet50
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -67,14 +67,14 @@ class DoubleConv(nn.Module):
 class UNetEncoder(nn.Module):
     """
     Encoder path del U-Net con skip connections.
-    Utiliza ResNet34 pre-entrenado como backbone para mejor extracción de características.
+    Utiliza ResNet-50 pre-entrenado como backbone para mejor extracción de características.
     """
 
     def __init__(self, pretrained=True):
         super(UNetEncoder, self).__init__()
 
-        # Usar ResNet34 pre-entrenado como backbone
-        resnet = resnet34(pretrained=pretrained)
+        # Usar ResNet-50 pre-entrenado como backbone
+        resnet = resnet50(pretrained=pretrained)
 
         # Extraer capas del ResNet
         self.conv1 = resnet.conv1  # 64 channels
@@ -82,13 +82,13 @@ class UNetEncoder(nn.Module):
         self.relu = resnet.relu
         self.maxpool = resnet.maxpool
 
-        self.layer1 = resnet.layer1  # 64 channels
-        self.layer2 = resnet.layer2  # 128 channels
-        self.layer3 = resnet.layer3  # 256 channels
-        self.layer4 = resnet.layer4  # 512 channels
+        self.layer1 = resnet.layer1  # 256 channels (ResNet-50 Bottleneck)
+        self.layer2 = resnet.layer2  # 512 channels
+        self.layer3 = resnet.layer3  # 1024 channels
+        self.layer4 = resnet.layer4  # 2048 channels
 
-        # Capas adicionales para el bottleneck
-        self.bottleneck = DoubleConv(512, 1024, dropout_rate=0.2)
+        # Capas adicionales para el bottleneck - actualizado para ResNet-50
+        self.bottleneck = DoubleConv(2048, 4096, dropout_rate=0.2)
 
     def forward(self, x):
         # Encoder path con skip connections
@@ -100,18 +100,18 @@ class UNetEncoder(nn.Module):
 
         x2 = self.maxpool(x1)
 
-        # ResNet layers
+        # ResNet layers (ResNet-50 con Bottleneck blocks)
         x3 = self.layer1(x2)
-        skip_connections.append(x3)  # Skip 2: 64 channels
+        skip_connections.append(x3)  # Skip 2: 256 channels
 
         x4 = self.layer2(x3)
-        skip_connections.append(x4)  # Skip 3: 128 channels
+        skip_connections.append(x4)  # Skip 3: 512 channels
 
         x5 = self.layer3(x4)
-        skip_connections.append(x5)  # Skip 4: 256 channels
+        skip_connections.append(x5)  # Skip 4: 1024 channels
 
         x6 = self.layer4(x5)
-        skip_connections.append(x6)  # Skip 5: 512 channels
+        skip_connections.append(x6)  # Skip 5: 2048 channels
 
         # Bottleneck
         x7 = self.bottleneck(x6)
@@ -129,27 +129,27 @@ class UNetDecoder(nn.Module):
         super(UNetDecoder, self).__init__()
         self.use_attention = use_attention
 
-        # Upsampling layers - usando ConvTranspose2d
-        self.up1 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
-        self.up2 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
-        self.up3 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
-        self.up4 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
-        self.up5 = nn.ConvTranspose2d(64, 64, kernel_size=2, stride=2)
+        # Upsampling layers - actualizado para ResNet-50
+        self.up1 = nn.ConvTranspose2d(4096, 2048, kernel_size=2, stride=2)
+        self.up2 = nn.ConvTranspose2d(2048, 1024, kernel_size=2, stride=2)
+        self.up3 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
+        self.up4 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
+        self.up5 = nn.ConvTranspose2d(256, 64, kernel_size=2, stride=2)
 
-        # Attention gates
+        # Attention gates - actualizado para ResNet-50
         if self.use_attention:
-            self.att1 = AttentionBlock(512, 512, 256)
-            self.att2 = AttentionBlock(256, 256, 128)
-            self.att3 = AttentionBlock(128, 128, 64)
-            self.att4 = AttentionBlock(64, 64, 32)
-            self.att5 = AttentionBlock(64, 64, 32)
+            self.att1 = AttentionBlock(2048, 2048, 1024)  # layer4: 2048 channels
+            self.att2 = AttentionBlock(1024, 1024, 512)   # layer3: 1024 channels
+            self.att3 = AttentionBlock(512, 512, 256)     # layer2: 512 channels
+            self.att4 = AttentionBlock(256, 256, 128)     # layer1: 256 channels
+            self.att5 = AttentionBlock(64, 64, 32)        # conv1: 64 channels
 
-        # Convolution blocks
-        self.conv1 = DoubleConv(1024, 512)
-        self.conv2 = DoubleConv(512, 256)
-        self.conv3 = DoubleConv(256, 128)
-        self.conv4 = DoubleConv(128, 64)
-        self.conv5 = DoubleConv(128, 64)
+        # Convolution blocks - actualizado para ResNet-50
+        self.conv1 = DoubleConv(4096, 2048)  # 2048 (up1) + 2048 (skip[0]) = 4096
+        self.conv2 = DoubleConv(2048, 1024)  # 1024 (up2) + 1024 (skip[1]) = 2048
+        self.conv3 = DoubleConv(1024, 512)   # 512 (up3) + 512 (skip[2]) = 1024
+        self.conv4 = DoubleConv(512, 256)    # 256 (up4) + 256 (skip[3]) = 512
+        self.conv5 = DoubleConv(128, 64)     # 64 (up5) + 64 (skip[4]) = 128
 
         # Output layer - 4 channels (RGB + Alpha)
         self.final_conv = nn.Conv2d(64, 4, kernel_size=1)
@@ -162,11 +162,11 @@ class UNetDecoder(nn.Module):
 
     def forward(self, x, skip_connections):
         # Decoder path - las skip connections están en orden inverso
-        skips = skip_connections[::-1]  # [512, 256, 128, 64, 64]
+        skips = skip_connections[::-1]  # [2048, 1024, 512, 256, 64] (ResNet-50)
 
-        # Up 1: 1024 -> 512
+        # Up 1: 4096 -> 2048
         x = self.up1(x)  # Upsample
-        skip = skips[0]  # 512 channels
+        skip = skips[0]  # 2048 channels (layer4)
 
         # Asegurar que las dimensiones coincidan
         skip = self._match_tensor_size(skip, x)
@@ -174,48 +174,48 @@ class UNetDecoder(nn.Module):
         if self.use_attention:
             skip = self.att1(skip, x)
 
-        x = torch.cat([x, skip], dim=1)  # 512 + 512 = 1024
-        x = self.conv1(x)  # 1024 -> 512
+        x = torch.cat([x, skip], dim=1)  # 2048 + 2048 = 4096
+        x = self.conv1(x)  # 4096 -> 2048
 
-        # Up 2: 512 -> 256
+        # Up 2: 2048 -> 1024
         x = self.up2(x)
-        skip = skips[1]  # 256 channels
+        skip = skips[1]  # 1024 channels (layer3)
 
         skip = self._match_tensor_size(skip, x)
 
         if self.use_attention:
             skip = self.att2(skip, x)
 
-        x = torch.cat([x, skip], dim=1)  # 256 + 256 = 512
-        x = self.conv2(x)  # 512 -> 256
+        x = torch.cat([x, skip], dim=1)  # 1024 + 1024 = 2048
+        x = self.conv2(x)  # 2048 -> 1024
 
-        # Up 3: 256 -> 128
+        # Up 3: 1024 -> 512
         x = self.up3(x)
-        skip = skips[2]  # 128 channels
+        skip = skips[2]  # 512 channels (layer2)
 
         skip = self._match_tensor_size(skip, x)
 
         if self.use_attention:
             skip = self.att3(skip, x)
 
-        x = torch.cat([x, skip], dim=1)  # 128 + 128 = 256
-        x = self.conv3(x)  # 256 -> 128
+        x = torch.cat([x, skip], dim=1)  # 512 + 512 = 1024
+        x = self.conv3(x)  # 1024 -> 512
 
-        # Up 4: 128 -> 64
+        # Up 4: 512 -> 256
         x = self.up4(x)
-        skip = skips[3]  # 64 channels
+        skip = skips[3]  # 256 channels (layer1)
 
         skip = self._match_tensor_size(skip, x)
 
         if self.use_attention:
             skip = self.att4(skip, x)
 
-        x = torch.cat([x, skip], dim=1)  # 64 + 64 = 128
-        x = self.conv4(x)  # 128 -> 64
+        x = torch.cat([x, skip], dim=1)  # 256 + 256 = 512
+        x = self.conv4(x)  # 512 -> 256
 
-        # Up 5: 64 -> 64 (final upsampling)
+        # Up 5: 256 -> 64 (final upsampling)
         x = self.up5(x)
-        skip = skips[4]  # 64 channels (primera capa conv)
+        skip = skips[4]  # 64 channels (conv1)
 
         skip = self._match_tensor_size(skip, x)
 

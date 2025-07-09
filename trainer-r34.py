@@ -350,13 +350,13 @@ def train_segmentation(config=None):
     # Configuración por defecto si no se proporciona
     if config is None:
         config = {
-            'batch_size': 16,
+            'batch_size': 16, # Se bajo de 32, satura el server
             'learning_rate': 1e-4,
             'weight_decay': 1e-6,
             'num_epochs': 100,
             'image_size': 384,
             'device': f'cuda:{device_id}' if torch.cuda.is_available() else 'cpu',
-            'num_workers': 8,
+            'num_workers': 8, # Se bajo de 12, satura el server
             'pin_memory': True,
         }
     else:
@@ -368,12 +368,22 @@ def train_segmentation(config=None):
         logger.setLevel(logging.INFO)
         if not logger.handlers:
             handler = logging.StreamHandler()
+            # Formato simple para evitar errores de 'rank' no encontrado
             formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
             handler.setFormatter(formatter)
             logger.addHandler(handler)
-        logger.info("Iniciando entrenamiento de modelo de segmentación")
-        logger.info(f"Dispositivo: {config['device']}, World Size: {world_size}")
+        
+        # Imprimir configuración de forma legible
+        logger.info("="*50)
+        logger.info(f"[RANK {rank}] Iniciando entrenamiento de modelo de segmentación")
+        logger.info(f"[RANK {rank}] Dispositivo: {config['device']}, World Size: {world_size}")
+        logger.info(f"[RANK {rank}] Configuración de entrenamiento:")
+        for key, value in config.items():
+            logger.info(f"[RANK {rank}]   - {key}: {value}")
+        logger.info("="*50)
+
     else:
+        # Para otros ranks, podemos mantenerlo simple o no loggear nada
         logger.setLevel(logging.CRITICAL)
 
     # Verificar dataset COCO
@@ -430,6 +440,19 @@ def train_segmentation(config=None):
         logger.error("Módulo datasets no disponible")
         return False
 
+    # --- INICIO: Verificación de dataset vacío ---
+    if len(train_dataset) == 0 or len(val_dataset) == 0:
+        if rank == 0:
+            logger.error("Uno o ambos datasets están vacíos. Abortando entrenamiento.")
+            logger.error(f"Tamaños: Train={len(train_dataset)}, Val={len(val_dataset)}")
+        
+        # Sincronizar procesos antes de salir para evitar que otros continúen
+        if is_distributed:
+            dist.barrier()
+        
+        return False
+    # --- FIN: Verificación de dataset vacío ---
+
     # --- INICIO: Crear data loaders con soporte DDP ---
     if is_distributed:
         train_sampler = DistributedSampler(train_dataset, num_replicas=world_size, rank=rank)
@@ -463,6 +486,7 @@ def train_segmentation(config=None):
 
     if rank == 0:
         logger.info(f"Dataset COCO cargado: {len(train_dataset)} train, {len(val_dataset)} val")
+        logger.info(f"DataLoaders listos: {len(train_loader)} batches de entrenamiento, {len(val_loader)} batches de validación")
 
     # Crear modelo
     try:
