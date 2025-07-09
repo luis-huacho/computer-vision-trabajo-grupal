@@ -1,0 +1,89 @@
+2025-06-29 01:36:22,145 - INFO - Iniciando análisis del dataset de harmonización
+2025-06-29 01:36:22,145 - INFO - Log guardado en: logs/dataset_harmonizer_analysis_20250629_013622.log
+2025-06-29 01:36:22,145 - INFO - === ANÁLISIS DE ESTRUCTURA DEL DATASET ===
+2025-06-29 01:36:22,145 - INFO - Directorio de foregrounds: dataset/foregrounds
+2025-06-29 01:36:22,145 - INFO - Directorio de backgrounds: dataset/backgrounds
+2025-06-29 01:36:22,145 - INFO - ✅ Directorio foregrounds existe
+2025-06-29 01:36:22,145 - INFO - 📁 Archivos de foreground encontrados: 10
+2025-06-29 01:36:22,145 - INFO -    1. fg_synthetic_004.png
+2025-06-29 01:36:22,145 - INFO -    2. fg_synthetic_009.png
+2025-06-29 01:36:22,145 - INFO -    3. fg_synthetic_002.png
+2025-06-29 01:36:22,145 - INFO -    4. fg_synthetic_007.png
+2025-06-29 01:36:22,145 - INFO -    5. fg_synthetic_006.png
+2025-06-29 01:36:22,145 - INFO -    6. fg_synthetic_008.png
+2025-06-29 01:36:22,145 - INFO -    7. fg_synthetic_005.png
+2025-06-29 01:36:22,145 - INFO -    8. fg_synthetic_003.png
+2025-06-29 01:36:22,145 - INFO -    9. fg_synthetic_001.png
+2025-06-29 01:36:22,145 - INFO -    10. fg_synthetic_000.png
+2025-06-29 01:36:22,145 - INFO - ✅ Directorio backgrounds existe
+2025-06-29 01:36:22,145 - INFO - 📁 Archivos de background encontrados: 20
+2025-06-29 01:36:22,145 - INFO -    1. bg_synthetic_002.jpg
+2025-06-29 01:36:22,145 - INFO -    2. bg_synthetic_001.jpg
+2025-06-29 01:36:22,145 - INFO -    3. bg_004.jpg
+2025-06-29 01:36:22,145 - INFO -    4. bg_000.jpg
+2025-06-29 01:36:22,145 - INFO -    5. bg_007.jpg
+2025-06-29 01:36:22,145 - INFO -    6. bg_003.jpg
+2025-06-29 01:36:22,145 - INFO -    7. bg_008.jpg
+2025-06-29 01:36:22,145 - INFO -    8. bg_synthetic_008.jpg
+2025-06-29 01:36:22,145 - INFO -    9. bg_006.jpg
+2025-06-29 01:36:22,145 - INFO -    10. bg_002.jpg
+2025-06-29 01:36:22,145 - INFO -    ... y 10 más
+2025-06-29 01:36:22,145 - INFO - 📊 Tamaño calculado del dataset: 20
+2025-06-29 01:36:22,145 - INFO -    (foregrounds × 2 = 10 × 2)
+2025-06-29 01:36:22,145 - INFO - 
+=== ANÁLISIS DE PROPIEDADES DE IMÁGENES ===
+2025-06-29 01:36:22,146 - INFO - 📸 Analizando imágenes de foreground...
+2025-06-29 01:36:22,148 - INFO -    1. fg_synthetic_004.png: (384, 384, 4), 4 canales, con alpha
+2025-06-29 01:36:22,151 - INFO -    2. fg_synthetic_009.png: (384, 384, 4), 4 canales, con alpha
+2025-06-29 01:36:22,153 - INFO -    3. fg_synthetic_002.png: (384, 384, 4), 4 canales, con alpha
+2025-06-29 01:36:22,155 - INFO -    4. fg_synthetic_007.png: (384, 384, 4), 4 canales, con alpha
+2025-06-29 01:36:22,157 - INFO -    5. fg_synthetic_006.png: (384, 384, 4), 4 canales, con alpha
+2025-06-29 01:36:22,157 - INFO - 🖼️ Analizando imágenes de background...
+2025-06-29 01:36:22,158 - INFO -    1. bg_synthetic_002.jpg: (384, 384, 3), 3 canales
+2025-06-29 01:36:22,158 - INFO -    2. bg_synthetic_001.jpg: (384, 384, 3), 3 canales
+2025-06-29 01:36:22,161 - INFO -    3. bg_004.jpg: (480, 640, 3), 3 canales
+2025-06-29 01:36:22,163 - INFO -    4. bg_000.jpg: (427, 640, 3), 3 canales
+2025-06-29 01:36:22,164 - INFO -    5. bg_007.jpg: (282, 425, 3), 3 canales
+2025-06-29 01:36:22,164 - INFO - 
+=== ANÁLISIS DE DIVISIÓN TRAIN/VAL ===
+2025-06-29 01:36:22,164 - INFO - 📊 División del dataset:
+2025-06-29 01:36:22,164 - INFO -    Total samples: 20
+2025-06-29 01:36:22,164 - INFO -    Train samples: 16 (80%)
+2025-06-29 01:36:22,164 - INFO -    Val samples: 4 (20%)
+2025-06-29 01:36:22,164 - INFO - 
+📦 Análisis de batches (batch_size=2):
+2025-06-29 01:36:22,164 - INFO -    Train batches: 8
+2025-06-29 01:36:22,164 - INFO -    Val batches (drop_last=True): 2
+2025-06-29 01:36:22,164 - INFO -    Val batches (drop_last=False): 2
+2025-06-29 01:36:22,164 - INFO - 
+=== PRUEBA DE CARGA DEL DATASET ===
+2025-06-29 01:36:23,650 - INFO - 🔄 Creando instancia del dataset...
+2025-06-29 01:36:23,651 - INFO - ✅ Dataset creado exitosamente
+2025-06-29 01:36:23,651 - INFO - 📏 Longitud reportada: 20
+2025-06-29 01:36:23,651 - INFO - 🔄 Cargando muestra de prueba...
+2025-06-29 01:36:23,669 - INFO - ✅ Muestra cargada exitosamente
+2025-06-29 01:36:23,669 - INFO - 📊 Composite shape: torch.Size([3, 384, 384])
+2025-06-29 01:36:23,669 - INFO - 📊 Target shape: torch.Size([3, 384, 384])
+2025-06-29 01:36:23,669 - INFO - 📊 Composite dtype: torch.float32
+2025-06-29 01:36:23,669 - INFO - 📊 Target dtype: torch.float32
+2025-06-29 01:36:23,674 - INFO - 📊 Composite range: [0.004, 1.000]
+2025-06-29 01:36:23,675 - INFO - 📊 Target range: [0.004, 1.000]
+2025-06-29 01:36:23,675 - INFO - 
+============================================================
+2025-06-29 01:36:23,675 - INFO - 📋 RESUMEN DEL ANÁLISIS DEL DATASET
+2025-06-29 01:36:23,675 - INFO - ============================================================
+2025-06-29 01:36:23,675 - INFO - 🎯 Estado general del dataset: ✅ OK
+2025-06-29 01:36:23,676 - INFO - 📊 Estadísticas:
+2025-06-29 01:36:23,676 - INFO -    - Foregrounds: 10
+2025-06-29 01:36:23,676 - INFO -    - Backgrounds: 20
+2025-06-29 01:36:23,676 - INFO -    - Tamaño dataset: 20 samples
+2025-06-29 01:36:23,676 - INFO -    - Train/Val: 16/4
+2025-06-29 01:36:23,676 - INFO - ✅ No se detectaron problemas críticos
+2025-06-29 01:36:23,676 - INFO - 
+💡 Recomendaciones:
+2025-06-29 01:36:23,676 - INFO -    - Dataset muy pequeño, considerar más imágenes
+2025-06-29 01:36:23,676 - INFO - 
+📁 Reporte completo guardado en: logs/dataset_harmonizer_analysis_20250629_013622.log
+2025-06-29 01:36:23,676 - INFO - 📄 Datos del análisis guardados en: logs/dataset_harmonizer_analysis_20250629_013622_data.json
+2025-06-29 01:36:23,676 - INFO - 
+✅ Análisis completado exitosamente!

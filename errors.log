@@ -1,3 +1,4 @@
+=======
 2025-06-25 00:49:12,814 - INFO - Iniciando sistema de entrenamiento U-Net Autoencoder
 2025-06-25 00:49:12,814 - INFO - Dispositivo: cuda
 2025-06-25 00:49:12,814 - INFO - Encontrados 13 subdirectorios de dataset: ['ds6', 'ds13', 'ds2', 'ds5', 'ds11', 'ds12', 'ds9', 'ds4', 'ds1', 'ds3', 'ds8', 'ds10', 'ds7']

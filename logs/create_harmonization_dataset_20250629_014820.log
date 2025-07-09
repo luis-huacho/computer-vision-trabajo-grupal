@@ -1,0 +1,25 @@
+2025-06-29 01:48:20,707 - INFO - Iniciando creación de dataset de harmonización
+2025-06-29 01:48:20,708 - INFO - Log guardado en: logs/create_harmonization_dataset_20250629_014820.log
+2025-06-29 01:48:20,708 - INFO - === DATOS EXISTENTES ENCONTRADOS ===
+2025-06-29 01:48:20,708 - INFO - 📁 COCO paths: ['COCO']
+2025-06-29 01:48:20,708 - INFO - 📁 Segmentation paths: []
+2025-06-29 01:48:20,708 - INFO - 📁 Mask paths: []
+2025-06-29 01:48:20,708 - INFO - 
+🔍 Analizando COCO en: COCO
+2025-06-29 01:48:20,708 - INFO -    Subdirectorios: ['annotations', 'val2017', 'train2017']
+2025-06-29 01:48:20,736 - INFO -    val2017: 5000 imágenes
+2025-06-29 01:48:20,845 - INFO -    train2017: 118287 imágenes
+2025-06-29 01:48:20,847 - INFO - 📦 Backup creado en: dataset/backup_20250629_014820
+2025-06-29 01:48:20,847 - INFO - 
+🖼️ CREANDO BACKGROUNDS DESDE COCO
+2025-06-29 01:48:20,847 - INFO -    Target: dataset/backgrounds
+2025-06-29 01:48:20,847 - INFO -    Procesando: COCO/val2017
+2025-06-29 01:48:21,068 - INFO -    Procesando: COCO/train2017
+2025-06-29 01:48:21,356 - INFO -    ✅ Creados 200 backgrounds desde COCO
+2025-06-29 01:48:21,357 - INFO - 
+============================================================
+2025-06-29 01:48:21,357 - INFO - 📋 REPORTE FINAL
+2025-06-29 01:48:21,357 - INFO - ============================================================
+2025-06-29 01:48:21,357 - INFO - ✅ Foregrounds creados: 0
+2025-06-29 01:48:21,357 - INFO - ✅ Backgrounds creados: 200
+2025-06-29 01:48:21,357 - WARNING - ⚠️ No se pudo crear dataset - datos insuficientes

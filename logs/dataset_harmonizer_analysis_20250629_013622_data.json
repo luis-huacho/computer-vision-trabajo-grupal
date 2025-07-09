@@ -1,0 +1,189 @@
+{
+  "foreground_dir": "dataset/foregrounds",
+  "background_dir": "dataset/backgrounds",
+  "foreground_exists": true,
+  "background_exists": true,
+  "foreground_files": [
+    "fg_synthetic_004.png",
+    "fg_synthetic_009.png",
+    "fg_synthetic_002.png",
+    "fg_synthetic_007.png",
+    "fg_synthetic_006.png",
+    "fg_synthetic_008.png",
+    "fg_synthetic_005.png",
+    "fg_synthetic_003.png",
+    "fg_synthetic_001.png",
+    "fg_synthetic_000.png"
+  ],
+  "background_files": [
+    "bg_synthetic_002.jpg",
+    "bg_synthetic_001.jpg",
+    "bg_004.jpg",
+    "bg_000.jpg",
+    "bg_007.jpg",
+    "bg_003.jpg",
+    "bg_008.jpg",
+    "bg_synthetic_008.jpg",
+    "bg_006.jpg",
+    "bg_002.jpg",
+    "bg_synthetic_007.jpg",
+    "bg_001.jpg",
+    "bg_synthetic_009.jpg",
+    "bg_synthetic_003.jpg",
+    "bg_synthetic_004.jpg",
+    "bg_synthetic_000.jpg",
+    "bg_009.jpg",
+    "bg_synthetic_005.jpg",
+    "bg_synthetic_006.jpg",
+    "bg_005.jpg"
+  ],
+  "total_foregrounds": 10,
+  "total_backgrounds": 20,
+  "dataset_size_calculation": 20,
+  "foreground_properties": [
+    {
+      "filename": "fg_synthetic_004.png",
+      "shape": [
+        384,
+        384,
+        4
+      ],
+      "dtype": "uint8",
+      "channels": 4,
+      "size_bytes": 589824,
+      "has_alpha": true
+    },
+    {
+      "filename": "fg_synthetic_009.png",
+      "shape": [
+        384,
+        384,
+        4
+      ],
+      "dtype": "uint8",
+      "channels": 4,
+      "size_bytes": 589824,
+      "has_alpha": true
+    },
+    {
+      "filename": "fg_synthetic_002.png",
+      "shape": [
+        384,
+        384,
+        4
+      ],
+      "dtype": "uint8",
+      "channels": 4,
+      "size_bytes": 589824,
+      "has_alpha": true
+    },
+    {
+      "filename": "fg_synthetic_007.png",
+      "shape": [
+        384,
+        384,
+        4
+      ],
+      "dtype": "uint8",
+      "channels": 4,
+      "size_bytes": 589824,
+      "has_alpha": true
+    },
+    {
+      "filename": "fg_synthetic_006.png",
+      "shape": [
+        384,
+        384,
+        4
+      ],
+      "dtype": "uint8",
+      "channels": 4,
+      "size_bytes": 589824,
+      "has_alpha": true
+    }
+  ],
+  "background_properties": [
+    {
+      "filename": "bg_synthetic_002.jpg",
+      "shape": [
+        384,
+        384,
+        3
+      ],
+      "dtype": "uint8",
+      "channels": 3,
+      "size_bytes": 442368
+    },
+    {
+      "filename": "bg_synthetic_001.jpg",
+      "shape": [
+        384,
+        384,
+        3
+      ],
+      "dtype": "uint8",
+      "channels": 3,
+      "size_bytes": 442368
+    },
+    {
+      "filename": "bg_004.jpg",
+      "shape": [
+        480,
+        640,
+        3
+      ],
+      "dtype": "uint8",
+      "channels": 3,
+      "size_bytes": 921600
+    },
+    {
+      "filename": "bg_000.jpg",
+      "shape": [
+        427,
+        640,
+        3
+      ],
+      "dtype": "uint8",
+      "channels": 3,
+      "size_bytes": 819840
+    },
+    {
+      "filename": "bg_007.jpg",
+      "shape": [
+        282,
+        425,
+        3
+      ],
+      "dtype": "uint8",
+      "channels": 3,
+      "size_bytes": 359550
+    }
+  ],
+  "total_samples": 20,
+  "train_samples": 16,
+  "val_samples": 4,
+  "batch_size": 2,
+  "train_batches": 8,
+  "val_batches_drop_true": 2,
+  "val_batches_drop_false": 2,
+  "dataset_loading_success": true,
+  "dataset_length": 20,
+  "sample_composite_shape": [
+    3,
+    384,
+    384
+  ],
+  "sample_target_shape": [
+    3,
+    384,
+    384
+  ],
+  "sample_composite_range": [
+    0.003921568859368563,
+    1.0
+  ],
+  "sample_target_range": [
+    0.003921568859368563,
+    1.0
+  ]
+}

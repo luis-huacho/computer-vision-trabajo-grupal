@@ -1,3 +1,23 @@
+🚀 INICIALIZANDO SISTEMA U-NET
+========================================
+🚀 INICIALIZANDO EXPERIMENTO
+==================================================
+✅ Reproducibilidad configurada (seed: 42)
+✅ Directorios del experimento creados/verificados
+🔍 INFORMACIÓN DEL SISTEMA:
+   - Experimento: U-Net Background Removal with Harmonization v2.0
+   - Autores: Luis Huacho, Dominick Alvarez
+   - Institución: Maestría en Informática, PUCP
+   - Dispositivo: cuda
+   - PyTorch: 2.7.0+cu126
+   - CUDA disponible: True
+   - GPU: NVIDIA RTX 6000 Ada Generation
+   - Memoria GPU: 51.0 GB
+   - Fecha: 2025-06-25 10:25:15
+⚠️  Warnings suprimidos
+==================================================
+✅ Experimento inicializado correctamente
+=======
 === PRUEBAS DEL SISTEMA U-NET AUTOENCODER ===
 
 Probando forward pass del modelo...
@@ -39,4 +59,3 @@ Test case 4: 1080x1920x3
 ✓ Pruebas de procesamiento de imágenes completadas
 
 ✅ Todas las pruebas pasaron. Procediendo con el entrenamiento...
-

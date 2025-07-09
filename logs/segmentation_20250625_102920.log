@@ -1,0 +1,13 @@
+2025-06-25 10:29:20,056 - INFO - Iniciando entrenamiento...
+2025-06-25 10:29:20,056 - INFO - Configuración: {'batch_size': 16, 'learning_rate': 0.0001, 'weight_decay': 1e-06, 'num_epochs': 100, 'image_size': 384, 'device': 'cuda', 'num_workers': 8, 'pin_memory': True, 'mixed_precision': True, 'use_data_parallel': True}
+2025-06-25 10:29:20,056 - INFO - 
+Época 1/100
+2025-06-25 10:29:21,809 - INFO - Batch 0/3763: Loss: 1.8551, IoU: 0.0000, Dice: 0.0000
+2025-06-25 10:29:23,822 - INFO - Batch 10/3763: Loss: 1.6461, IoU: 0.0000, Dice: 0.0000
+2025-06-25 10:29:25,833 - INFO - Batch 20/3763: Loss: 1.5369, IoU: 0.0000, Dice: 0.0000
+2025-06-25 10:29:27,848 - INFO - Batch 30/3763: Loss: 1.4791, IoU: 0.0000, Dice: 0.0000
+2025-06-25 10:29:29,866 - INFO - Batch 40/3763: Loss: 1.4387, IoU: 0.0000, Dice: 0.0000
+2025-06-25 10:29:31,887 - INFO - Batch 50/3763: Loss: 1.4172, IoU: 0.0000, Dice: 0.0000
+2025-06-25 10:29:33,910 - INFO - Batch 60/3763: Loss: 1.3970, IoU: 0.0000, Dice: 0.0000
+2025-06-25 10:29:35,933 - INFO - Batch 70/3763: Loss: 1.3845, IoU: 0.0000, Dice: 0.0000
+2025-06-25 10:29:37,962 - INFO - Batch 80/3763: Loss: 1.3713, IoU: 0.0000, Dice: 0.0000
