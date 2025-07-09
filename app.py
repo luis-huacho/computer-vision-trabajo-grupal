@@ -639,7 +639,7 @@ class BackgroundRemoverDebug:
 
 
 @st.cache_resource
-def load_segmentation_model():
+def load_segmentation_model():git 
     """Cargar el modelo de segmentación (con cache para evitar recargas)."""
     model_path = 'checkpoints/resnet34/best_segmentation.pth'
 
