@@ -485,6 +485,196 @@ class DepthEstimator:
             return self.estimate_depth_heuristic(background_image, person_position)
 
 
+class ShadowGenerator:
+    """
+    Generador de sombras realistas usando métodos clásicos.
+    Soporta diferentes tipos de sombra sin necesidad de modelos.
+    """
+    
+    def __init__(self):
+        pass
+    
+    def generate_shadow(self, person_mask: np.ndarray, background_rgb: np.ndarray, 
+                       shadow_config: dict, person_position: Tuple[int, int]) -> np.ndarray:
+        """
+        Genera sombra según la configuración especificada.
+        
+        Args:
+            person_mask: Máscara binaria de la persona (0-255)
+            background_rgb: Imagen RGB del fondo
+            shadow_config: Configuración de sombra
+            person_position: Posición de la persona en el fondo
+        """
+        if shadow_config['type'] == 'Ninguna':
+            return background_rgb
+        
+        shadow_type = shadow_config['type']
+        
+        if shadow_type == 'Proyectada':
+            return self._generate_projected_shadow(person_mask, background_rgb, shadow_config, person_position)
+        elif shadow_type == 'Difusa':
+            return self._generate_diffuse_shadow(person_mask, background_rgb, shadow_config, person_position)
+        elif shadow_type == 'Contacto':
+            return self._generate_contact_shadow(person_mask, background_rgb, shadow_config, person_position)
+        elif shadow_type == 'Direccional':
+            return self._generate_directional_shadow(person_mask, background_rgb, shadow_config, person_position)
+        else:
+            return background_rgb
+    
+    def _generate_projected_shadow(self, person_mask: np.ndarray, background_rgb: np.ndarray, 
+                                  shadow_config: dict, person_position: Tuple[int, int]) -> np.ndarray:
+        """Genera sombra proyectada en el suelo"""
+        try:
+            # Crear transformación de proyección
+            angle = np.radians(shadow_config['angle'])
+            distance = shadow_config['distance']
+            
+            # Matriz de transformación para proyección
+            shear_x = np.tan(angle) * distance
+            transform_matrix = np.array([
+                [1, 0, 0],
+                [shear_x, 0.6, distance * person_mask.shape[0] * 0.2],  # Compresión vertical
+                [0, 0, 1]
+            ], dtype=np.float32)
+            
+            # Aplicar transformación
+            h, w = person_mask.shape[:2]
+            shadow_mask = cv2.warpAffine(person_mask, transform_matrix[:2], (w, h), 
+                                       flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+            
+            # Aplicar sombra al fondo
+            result = self._apply_shadow_to_background(background_rgb, shadow_mask, shadow_config)
+            
+            return result
+        except Exception:
+            return background_rgb
+    
+    def _generate_diffuse_shadow(self, person_mask: np.ndarray, background_rgb: np.ndarray, 
+                               shadow_config: dict, person_position: Tuple[int, int]) -> np.ndarray:
+        """Genera sombra difusa alrededor de la persona"""
+        try:
+            # Crear máscara expandida
+            kernel_size = max(3, int(shadow_config['blur'] * 2))
+            if kernel_size % 2 == 0:
+                kernel_size += 1
+            
+            kernel = np.ones((kernel_size, kernel_size), np.uint8)
+            expanded_mask = cv2.dilate(person_mask, kernel, iterations=2)
+            
+            # Crear sombra difusa
+            shadow_mask = cv2.GaussianBlur(expanded_mask, (kernel_size, kernel_size), shadow_config['blur'])
+            
+            # Aplicar sombra al fondo
+            result = self._apply_shadow_to_background(background_rgb, shadow_mask, shadow_config)
+            
+            return result
+        except Exception:
+            return background_rgb
+    
+    def _generate_contact_shadow(self, person_mask: np.ndarray, background_rgb: np.ndarray, 
+                               shadow_config: dict, person_position: Tuple[int, int]) -> np.ndarray:
+        """Genera sombra de contacto en la base"""
+        try:
+            # Crear sombra solo en la parte inferior
+            h, w = person_mask.shape[:2]
+            shadow_mask = np.zeros_like(person_mask)
+            
+            # Encontrar la parte inferior de la persona
+            person_coords = np.where(person_mask > 100)
+            if len(person_coords[0]) > 0:
+                bottom_y = np.max(person_coords[0])
+                
+                # Crear sombra elíptica en la base
+                shadow_height = int(h * 0.1)  # 10% de la altura
+                shadow_width = int(w * 0.6)   # 60% del ancho
+                
+                # Crear elipse justo en el borde inferior
+                center_x = w // 2
+                center_y = min(h - 1, bottom_y + 5)  # Más cerca del borde
+                
+                cv2.ellipse(shadow_mask, 
+                           (center_x, center_y), 
+                           (shadow_width // 2, shadow_height // 2), 
+                           0, 0, 360, 255, -1)
+            
+            # Difuminar sombra
+            if shadow_config['blur'] > 0:
+                kernel_size = max(3, shadow_config['blur'] * 2)
+                if kernel_size % 2 == 0:
+                    kernel_size += 1
+                shadow_mask = cv2.GaussianBlur(shadow_mask, (kernel_size, kernel_size), shadow_config['blur'])
+            
+            # Aplicar sombra al fondo
+            result = self._apply_shadow_to_background(background_rgb, shadow_mask, shadow_config)
+            
+            return result
+        except Exception:
+            return background_rgb
+    
+    def _generate_directional_shadow(self, person_mask: np.ndarray, background_rgb: np.ndarray, 
+                                   shadow_config: dict, person_position: Tuple[int, int]) -> np.ndarray:
+        """Genera sombra direccional basada en iluminación"""
+        try:
+            # Crear desplazamiento direccional
+            angle = np.radians(shadow_config['angle'])
+            distance = shadow_config['distance'] * 50  # Convertir a píxeles
+            
+            offset_x = int(np.cos(angle) * distance)
+            offset_y = int(np.sin(angle) * distance)
+            
+            # Crear sombra desplazada
+            h, w = person_mask.shape[:2]
+            shadow_mask = np.zeros_like(person_mask)
+            
+            # Aplicar desplazamiento
+            if offset_x >= 0 and offset_y >= 0:
+                shadow_mask[offset_y:, offset_x:] = person_mask[:h-offset_y, :w-offset_x]
+            elif offset_x >= 0 and offset_y < 0:
+                shadow_mask[:h+offset_y, offset_x:] = person_mask[-offset_y:, :w-offset_x]
+            elif offset_x < 0 and offset_y >= 0:
+                shadow_mask[offset_y:, :w+offset_x] = person_mask[:h-offset_y, -offset_x:]
+            else:
+                shadow_mask[:h+offset_y, :w+offset_x] = person_mask[-offset_y:, -offset_x:]
+            
+            # Difuminar sombra
+            if shadow_config['blur'] > 0:
+                kernel_size = max(3, shadow_config['blur'] * 2)
+                if kernel_size % 2 == 0:
+                    kernel_size += 1
+                shadow_mask = cv2.GaussianBlur(shadow_mask, (kernel_size, kernel_size), shadow_config['blur'])
+            
+            # Aplicar sombra al fondo
+            result = self._apply_shadow_to_background(background_rgb, shadow_mask, shadow_config)
+            
+            return result
+        except Exception:
+            return background_rgb
+    
+    def _apply_shadow_to_background(self, background_rgb: np.ndarray, shadow_mask: np.ndarray, 
+                                  shadow_config: dict) -> np.ndarray:
+        """Aplica la sombra al fondo"""
+        try:
+            # Convertir color de sombra de hex a RGB
+            shadow_color_hex = shadow_config['color']
+            shadow_color_rgb = tuple(int(shadow_color_hex[i:i+2], 16) for i in (1, 3, 5))
+            
+            # Crear imagen de sombra
+            shadow_intensity = shadow_config['intensity']
+            shadow_alpha = (shadow_mask / 255.0) * shadow_intensity
+            
+            # Aplicar sombra
+            result = background_rgb.copy().astype(np.float32)
+            
+            for i in range(3):  # RGB channels
+                # Mezclar con el color de sombra
+                shadow_channel = shadow_color_rgb[i] * shadow_alpha
+                result[:, :, i] = result[:, :, i] * (1 - shadow_alpha) + shadow_channel
+            
+            return np.clip(result, 0, 255).astype(np.uint8)
+        except Exception:
+            return background_rgb
+
+
 class RealisticCompositor:
     """
     Compositor inteligente que usa estimación de profundidad para
@@ -494,6 +684,7 @@ class RealisticCompositor:
     def __init__(self, device='cpu'):
         self.depth_estimator = DepthEstimator(device)
         self.processor = ImageProcessor()
+        self.shadow_generator = ShadowGenerator()
     
     def compose_realistic(self, foreground_rgba: np.ndarray, background_rgb: np.ndarray, 
                          person_position: Tuple[int, int], 
@@ -501,9 +692,10 @@ class RealisticCompositor:
                          manual_scale: float = 1.0,
                          blur_intensity: float = 0.0,
                          target_coverage: float = 0.15,
-                         edge_enhancement: dict = None) -> np.ndarray:
+                         edge_enhancement: dict = None,
+                         shadow_config: dict = None) -> np.ndarray:
         """
-        Crea composición realista con escala inteligente y mejoras de bordes.
+        Crea composición realista con escala inteligente, mejoras de bordes y sombras.
         
         Args:
             foreground_rgba: Imagen RGBA de la persona
@@ -514,6 +706,7 @@ class RealisticCompositor:
             blur_intensity: Intensidad de blur por profundidad (0-1)
             target_coverage: Cobertura objetivo de la persona (0.05-0.5)
             edge_enhancement: Configuración de mejoras de bordes
+            shadow_config: Configuración de sombras
         """
         if edge_enhancement is None:
             edge_enhancement = {
@@ -522,6 +715,16 @@ class RealisticCompositor:
                 'hair_enhancement': False,
                 'color_bleeding': 0,
                 'lighting_match': False
+            }
+        
+        if shadow_config is None:
+            shadow_config = {
+                'type': 'Ninguna',
+                'intensity': 0.0,
+                'blur': 0,
+                'angle': 0,
+                'distance': 0.0,
+                'color': '#000000'
             }
         
         # 1. Calcular escala base inteligente
@@ -535,9 +738,10 @@ class RealisticCompositor:
         )
         
         # 3. Ajuste anatómico
-        pos_y_pct = person_position[1] / background_rgb.shape[0]
+        # Calcular altura desde la base (0 = en el suelo, 1 = arriba)
+        pos_y_from_bottom = (background_rgb.shape[0] - person_position[1]) / background_rgb.shape[0]
         anatomical_scale = self._anatomical_scale_adjustment(
-            foreground_rgba.shape[0], background_rgb.shape[0], pos_y_pct
+            foreground_rgba.shape[0], background_rgb.shape[0], pos_y_from_bottom
         )
         
         # 4. Combinar todos los factores de escala
@@ -559,8 +763,19 @@ class RealisticCompositor:
         if blur_intensity > 0:
             person_scaled = self._apply_depth_blur(person_scaled, depth_scale, blur_intensity)
         
-        # 8. Componer en posición
-        result = self._compose_at_position(person_scaled, background_rgb, person_position)
+        # 8. Generar sombras (antes de componer la persona)
+        background_with_shadow = background_rgb
+        if shadow_config['type'] != 'Ninguna':
+            # Extraer máscara de la persona escalada
+            person_mask = person_scaled[:, :, 3] if person_scaled.shape[2] == 4 else np.ones(person_scaled.shape[:2], dtype=np.uint8) * 255
+            
+            # Generar sombra
+            background_with_shadow = self.shadow_generator.generate_shadow(
+                person_mask, background_rgb, shadow_config, person_position
+            )
+        
+        # 9. Componer persona sobre fondo (con sombras)
+        result = self._compose_at_position(person_scaled, background_with_shadow, person_position)
         
         return result, {
             'base_scale': base_scale,
@@ -613,9 +828,9 @@ class RealisticCompositor:
         # Crear canvas del tamaño del fondo
         result = background_rgb.copy()
         
-        # Calcular posición de colocación (centrado en posición)
+        # Calcular posición de colocación (centrado horizontalmente, alineado por la base)
         start_x = max(0, pos_x - person_w // 2)
-        start_y = max(0, pos_y - person_h // 2)
+        start_y = max(0, pos_y - person_h)  # Alinear por la base (borde inferior)
         end_x = min(bg_w, start_x + person_w)
         end_y = min(bg_h, start_y + person_h)
         
@@ -692,17 +907,17 @@ class RealisticCompositor:
     
     def _anatomical_scale_adjustment(self, person_height: int, 
                                    background_height: int, 
-                                   position_y_pct: float) -> float:
+                                   height_from_bottom_pct: float) -> float:
         """
-        Ajuste anatómico basado en posición vertical.
+        Ajuste anatómico basado en altura desde la base.
         
         Args:
             person_height: Alto de la persona en píxeles
             background_height: Alto del fondo en píxeles
-            position_y_pct: Posición vertical (0=arriba, 1=abajo)
+            height_from_bottom_pct: Altura desde la base (0=en el suelo, 1=arriba)
         """
-        # Factor de perspectiva: objetos más abajo parecen más grandes
-        perspective_factor = 0.8 + (position_y_pct * 0.4)  # Rango: 0.8 - 1.2
+        # Factor de perspectiva: objetos más altos parecen más pequeños
+        perspective_factor = 1.2 - (height_from_bottom_pct * 0.4)  # Rango: 0.8 - 1.2
         
         # Factor de proporción: personas muy grandes/pequeñas necesitan ajuste
         size_ratio = person_height / background_height
@@ -1080,11 +1295,9 @@ def process_with_model(model, device, original_image, model_name):
     
     return viz_dict, processing_time
 
-def process_realistic_composition(segmented_image, background_image, pos_x_pct, pos_y_pct, 
-                                depth_method, manual_scale, blur_intensity, 
-                                target_coverage=0.15, edge_enhancement=None):
+def process_simple_composition(segmented_image, background_image, pos_x_pct, pos_y_pct, manual_scale, shadow_config=None):
     """
-    Procesa composición realista con los parámetros especificados.
+    Procesa composición simple usando solo harmonización.
     """
     start_time = time.time()
     
@@ -1102,14 +1315,119 @@ def process_realistic_composition(segmented_image, background_image, pos_x_pct, 
     # Convertir porcentajes a coordenadas
     bg_h, bg_w = background_np.shape[:2]
     person_pos_x = int((pos_x_pct / 100.0) * bg_w)
-    person_pos_y = int((pos_y_pct / 100.0) * bg_h)
+    # Convertir altura desde la base: 0% = fondo, 100% = arriba
+    person_pos_y = int(bg_h - (pos_y_pct / 100.0) * bg_h)
+    
+    # Composición simple: solo redimensionar por escala manual y aplicar harmonización
+    processor = ImageProcessor()
+    
+    # Redimensionar persona según escala manual
+    person_h, person_w = segmented_np.shape[:2]
+    new_h, new_w = int(person_h * manual_scale), int(person_w * manual_scale)
+    
+    if new_h > 0 and new_w > 0:
+        person_scaled = cv2.resize(segmented_np, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
+    else:
+        person_scaled = segmented_np
+    
+    # Generar sombras si están configuradas
+    background_with_shadow = background_np
+    if shadow_config and shadow_config['type'] != 'Ninguna':
+        # Extraer máscara de la persona escalada
+        person_mask = person_scaled[:, :, 3] if person_scaled.shape[2] == 4 else np.ones(person_scaled.shape[:2], dtype=np.uint8) * 255
+        
+        # Crear instancia del generador de sombras
+        shadow_generator = ShadowGenerator()
+        
+        # Generar sombra
+        background_with_shadow = shadow_generator.generate_shadow(
+            person_mask, background_np, shadow_config, (person_pos_x, person_pos_y)
+        )
+    
+    # Componer en posición
+    result = background_with_shadow.copy()
+    
+    # Calcular posición de colocación (centrado horizontalmente, alineado por la base)
+    start_x = max(0, person_pos_x - new_w // 2)
+    start_y = max(0, person_pos_y - new_h)  # Alinear por la base (borde inferior)
+    end_x = min(bg_w, start_x + new_w)
+    end_y = min(bg_h, start_y + new_h)
+    
+    # Calcular recorte de persona si es necesario
+    crop_start_x = max(0, -start_x)
+    crop_start_y = max(0, -start_y)
+    crop_end_x = crop_start_x + (end_x - start_x)
+    crop_end_y = crop_start_y + (end_y - start_y)
+    
+    if crop_end_x > crop_start_x and crop_end_y > crop_start_y:
+        # Extraer región de persona
+        person_region = person_scaled[crop_start_y:crop_end_y, crop_start_x:crop_end_x]
+        
+        # Aplicar composición simple
+        if person_region.shape[2] == 4:  # RGBA
+            # Alpha blending
+            fg_rgb = person_region[:, :, :3].astype(np.float32) / 255.0
+            alpha = person_region[:, :, 3].astype(np.float32) / 255.0
+            bg_rgb = result[start_y:end_y, start_x:end_x].astype(np.float32) / 255.0
+            
+            alpha = alpha[:, :, np.newaxis]
+            composite = fg_rgb * alpha + bg_rgb * (1 - alpha)
+            result[start_y:end_y, start_x:end_x] = (composite * 255).astype(np.uint8)
+        else:  # RGB
+            result[start_y:end_y, start_x:end_x] = person_region
+    
+    processing_time = time.time() - start_time
+    
+    # Información de escala simple
+    scale_info = {
+        'base_scale': manual_scale,
+        'depth_scale': 1.0,
+        'anatomical_scale': 1.0,
+        'final_scale': manual_scale
+    }
+    
+    return {
+        "composition": result,
+        "scale_info": scale_info,
+        "processing_time": processing_time,
+        "person_position": (person_pos_x, person_pos_y)
+    }
+
+def process_realistic_composition(segmented_image, background_image, pos_x_pct, pos_y_pct, 
+                                depth_method, manual_scale, blur_intensity, 
+                                target_coverage=0.15, edge_enhancement=None, shadow_config=None):
+    """
+    Procesa composición realista con los parámetros especificados.
+    """
+    start_time = time.time()
+    
+    # Si el método es "Ninguno", usar composición simple
+    if depth_method == "Ninguno":
+        return process_simple_composition(segmented_image, background_image, pos_x_pct, pos_y_pct, manual_scale, shadow_config)
+    
+    # Convertir PIL a numpy si es necesario
+    if isinstance(segmented_image, Image.Image):
+        segmented_np = np.array(segmented_image)
+    else:
+        segmented_np = segmented_image
+    
+    if isinstance(background_image, Image.Image):
+        background_np = np.array(background_image)
+    else:
+        background_np = background_image
+    
+    # Convertir porcentajes a coordenadas
+    bg_h, bg_w = background_np.shape[:2]
+    person_pos_x = int((pos_x_pct / 100.0) * bg_w)
+    # Convertir altura desde la base: 0% = fondo, 100% = arriba
+    person_pos_y = int(bg_h - (pos_y_pct / 100.0) * bg_h)
     
     # Realizar composición realista
     composition, scale_info = compositor.compose_realistic(
         segmented_np, background_np, 
         (person_pos_x, person_pos_y),
         depth_method, manual_scale, blur_intensity,
-        target_coverage, edge_enhancement
+        target_coverage, edge_enhancement, shadow_config
     )
     
     processing_time = time.time() - start_time
@@ -1156,21 +1474,33 @@ with st.sidebar:
     st.write("**Método de Estimación de Profundidad:**")
     depth_method = st.selectbox(
         "Selecciona método:",
-        ["heuristic", "midas"],
+        ["Ninguno", "heuristic", "midas"],
         index=0,
-        help="Heurística: Rápida, funciona siempre. MiDaS: Más precisa, requiere más recursos."
+        help="Ninguno: Solo harmonización. Heurística: Rápida, funciona siempre. MiDaS: Más precisa, requiere más recursos."
     )
     
     if depth_method == "midas" and not MIDAS_AVAILABLE:
         st.warning("⚠️ MiDaS no disponible. Instala timm: `pip install timm`")
         depth_method = "heuristic"
     
+    # Mostrar información específica según el método seleccionado
+    if depth_method == "Ninguno":
+        st.info("🎨 **Modo Harmonización**: Solo se aplicará harmonización sin escalado inteligente ni mejoras de bordes")
+    
+    # Controles de escala (siempre disponibles)
     st.write("**Controles de Escala:**")
-    manual_scale = st.slider(
-        "Escala manual", 
-        0.1, 2.0, 1.0, 0.1,
-        help="Multiplica la escala automática"
-    )
+    if depth_method != "Ninguno":
+        manual_scale = st.slider(
+            "Escala manual", 
+            0.1, 2.0, 1.0, 0.1,
+            help="Multiplica la escala automática"
+        )
+    else:
+        manual_scale = st.slider(
+            "Escala manual", 
+            0.1, 2.0, 1.0, 0.1,
+            help="Escala directa de la persona (modo harmonización)"
+        )
     
     st.write("**Posición en el Fondo:**")
     position_x = st.slider(
@@ -1180,76 +1510,165 @@ with st.sidebar:
     )
     
     position_y = st.slider(
-        "Posición Vertical (%)", 
-        0, 100, 70, 5,
-        help="Posición vertical en el fondo"
+        "Altura desde la Base (%)", 
+        0, 100, 0, 5,
+        help="Altura desde el borde inferior del fondo (0% = en el suelo, 100% = arriba)"
     )
     
-    st.write("**Cobertura Objetivo:**")
-    target_coverage = st.slider(
-        "Cobertura de la persona (%)", 
-        5, 50, 15, 5,
-        help="Porcentaje del fondo que debe cubrir la persona"
-    ) / 100.0
-    
-    st.write("**Efectos de Profundidad:**")
-    blur_intensity = st.slider(
-        "Intensidad de Blur por Profundidad", 
-        0.0, 1.0, 0.0, 0.1,
-        help="Objetos lejanos se ven más borrosos"
-    )
-    
-    show_depth_info = st.checkbox(
-        "Mostrar información de profundidad", 
-        True,
-        help="Muestra detalles del análisis de profundidad"
-    )
+    if depth_method != "Ninguno":
+        st.write("**Cobertura Objetivo:**")
+        target_coverage = st.slider(
+            "Cobertura de la persona (%)", 
+            5, 50, 15, 5,
+            help="Porcentaje del fondo que debe cubrir la persona"
+        ) / 100.0
+        
+        st.write("**Efectos de Profundidad:**")
+        blur_intensity = st.slider(
+            "Intensidad de Blur por Profundidad", 
+            0.0, 1.0, 0.0, 0.1,
+            help="Objetos lejanos se ven más borrosos"
+        )
+        
+        show_depth_info = st.checkbox(
+            "Mostrar información de profundidad", 
+            True,
+            help="Muestra detalles del análisis de profundidad"
+        )
+    else:
+        target_coverage = 0.15  # Valor por defecto
+        blur_intensity = 0.0    # Sin blur para harmonización simple
+        show_depth_info = False  # No mostrar info de profundidad
 
 # --- Controles de Mejoras de Bordes ---
-st.sidebar.header("🎨 Mejoras de Bordes")
+if depth_method != "Ninguno":
+    st.sidebar.header("🎨 Mejoras de Bordes")
+
+    with st.sidebar:
+        st.write("**Suavizado de Bordes:**")
+        edge_smoothing = st.slider(
+            "Intensidad de Suavizado", 
+            0.0, 1.0, 0.0, 0.1,
+            help="Suaviza los bordes de la segmentación"
+        )
+        
+        st.write("**Refinamiento Avanzado:**")
+        grabcut_refine = st.checkbox(
+            "Refinamiento GrabCut", 
+            False,
+            help="Mejora bordes usando algoritmo GrabCut"
+        )
+        
+        hair_enhancement = st.checkbox(
+            "Mejora de Cabello", 
+            False,
+            help="Mejora específica para bordes de cabello"
+        )
+        
+        st.write("**Integración con Fondo:**")
+        color_bleeding = st.slider(
+            "Sangrado de Color", 
+            0.0, 1.0, 0.0, 0.1,
+            help="Mezcla colores del fondo en los bordes"
+        )
+        
+        lighting_match = st.checkbox(
+            "Ajuste de Iluminación", 
+            False,
+            help="Ajusta la iluminación en los bordes"
+        )
+        
+        # Crear configuración de edge enhancement
+        edge_enhancement = {
+            'edge_smoothing': edge_smoothing,
+            'grabcut_refine': grabcut_refine,
+            'hair_enhancement': hair_enhancement,
+            'color_bleeding': color_bleeding,
+            'lighting_match': lighting_match
+        }
+else:
+    # Configuración por defecto para harmonización simple
+    edge_enhancement = {
+        'edge_smoothing': 0,
+        'grabcut_refine': False,
+        'hair_enhancement': False,
+        'color_bleeding': 0,
+        'lighting_match': False
+    }
+
+# --- Controles de Sombras ---
+st.sidebar.header("🌒 Efectos de Sombra")
 
 with st.sidebar:
-    st.write("**Suavizado de Bordes:**")
-    edge_smoothing = st.slider(
-        "Intensidad de Suavizado", 
-        0.0, 1.0, 0.0, 0.1,
-        help="Suaviza los bordes de la segmentación"
+    st.write("**Tipo de Sombra:**")
+    shadow_type = st.selectbox(
+        "Selecciona tipo de sombra:",
+        ["Ninguna", "Proyectada", "Difusa", "Contacto", "Direccional"],
+        index=0,
+        help="Tipo de sombra a generar"
     )
     
-    st.write("**Refinamiento Avanzado:**")
-    grabcut_refine = st.checkbox(
-        "Refinamiento GrabCut", 
-        False,
-        help="Mejora bordes usando algoritmo GrabCut"
-    )
-    
-    hair_enhancement = st.checkbox(
-        "Mejora de Cabello", 
-        False,
-        help="Mejora específica para bordes de cabello"
-    )
-    
-    st.write("**Integración con Fondo:**")
-    color_bleeding = st.slider(
-        "Sangrado de Color", 
-        0.0, 1.0, 0.0, 0.1,
-        help="Mezcla colores del fondo en los bordes"
-    )
-    
-    lighting_match = st.checkbox(
-        "Ajuste de Iluminación", 
-        False,
-        help="Ajusta la iluminación en los bordes"
-    )
-    
-    # Crear configuración de edge enhancement
-    edge_enhancement = {
-        'edge_smoothing': edge_smoothing,
-        'grabcut_refine': grabcut_refine,
-        'hair_enhancement': hair_enhancement,
-        'color_bleeding': color_bleeding,
-        'lighting_match': lighting_match
-    }
+    if shadow_type != "Ninguna":
+        st.write("**Configuración de Sombra:**")
+        
+        shadow_intensity = st.slider(
+            "Intensidad de Sombra",
+            0.1, 1.0, 0.5, 0.1,
+            help="Intensidad de la sombra (0.1 = suave, 1.0 = intensa)"
+        )
+        
+        shadow_blur = st.slider(
+            "Difuminado de Sombra",
+            0, 20, 5, 1,
+            help="Cantidad de difuminado de la sombra"
+        )
+        
+        if shadow_type in ["Proyectada", "Direccional"]:
+            shadow_angle = st.slider(
+                "Ángulo de Sombra",
+                -45, 45, 15, 5,
+                help="Ángulo de proyección de la sombra (grados)"
+            )
+            
+            shadow_distance = st.slider(
+                "Distancia de Sombra",
+                0.1, 2.0, 0.8, 0.1,
+                help="Distancia de proyección de la sombra"
+            )
+        else:
+            shadow_angle = 15
+            shadow_distance = 0.8
+        
+        shadow_color = st.color_picker(
+            "Color de Sombra",
+            "#000000",
+            help="Color de la sombra"
+        )
+        
+        # Crear configuración de sombra
+        shadow_config = {
+            'type': shadow_type,
+            'intensity': shadow_intensity,
+            'blur': shadow_blur,
+            'angle': shadow_angle,
+            'distance': shadow_distance,
+            'color': shadow_color
+        }
+    else:
+        shadow_config = {
+            'type': 'Ninguna',
+            'intensity': 0.0,
+            'blur': 0,
+            'angle': 0,
+            'distance': 0.0,
+            'color': '#000000'
+        }
+
+# --- Botón de Reiniciar ---
+st.sidebar.header("🔄 Controles")
+with st.sidebar:
+    if st.button("🔄 Reiniciar Controles", help="Restaura todos los controles a sus valores por defecto"):
+        st.rerun()
 
 # Selector de modelos
 model_options = []
@@ -1345,7 +1764,7 @@ if uploaded_file is not None:
                             background_image,
                             position_x, position_y,
                             depth_method, manual_scale, blur_intensity,
-                            target_coverage, edge_enhancement
+                            target_coverage, edge_enhancement, shadow_config
                         )
                         composition_results[model_name] = composition_result
         
@@ -1423,7 +1842,10 @@ if uploaded_file is not None:
                 
                 # Luego mostrar la composición realista
                 st.write("**🎨 Composición Realista:**")
-                st.info(f"Tiempo de composición: {comp_result['processing_time']:.3f} segundos")
+                info_text = f"Tiempo de composición: {comp_result['processing_time']:.3f} segundos"
+                if shadow_config['type'] != 'Ninguna':
+                    info_text += f" | Sombra: {shadow_config['type']}"
+                st.info(info_text)
                 
                 # Información detallada de escalado
                 if show_depth_info:
@@ -1537,6 +1959,11 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 🎯 Estimación de Profundidad")
     st.markdown("""
+    **Ninguno:**
+    - 🎨 Solo harmonización
+    - ⚡ Muy rápido
+    - 🔧 Escala manual únicamente
+    
     **Método Heurístico:**
     - ⚡ Rápido (~50ms)
     - 🔋 Bajo uso de memoria
@@ -1559,6 +1986,15 @@ with st.sidebar:
     **Iluminación:** Ajusta luz en bordes
     """)
     
+    st.markdown("### 🌒 Efectos de Sombra")
+    st.markdown("""
+    **Proyectada:** Sombra realista en el suelo
+    **Difusa:** Sombra suave alrededor
+    **Contacto:** Sombra solo en la base
+    **Direccional:** Sombra según iluminación
+    **Sin modelo:** Métodos clásicos rápidos
+    """)
+    
     st.markdown("### 💡 Consejos")
     st.markdown("""
     **Para mejores resultados:**
@@ -1571,8 +2007,13 @@ with st.sidebar:
     **Escalado Inteligente:**
     - **Base:** Cobertura objetivo (5-50%)
     - **Profundidad:** Análisis automático
-    - **Anatómico:** Posición y proporción
+    - **Anatómico:** Altura y proporción
     - **Final:** Combinación validada
+    
+    **Posicionamiento:**
+    - **Horizontal:** Centrado en la posición
+    - **Vertical:** Alineado por la base
+    - **Altura:** 0% = en el suelo, 100% = arriba
     """)
     
     st.markdown("---")
