@@ -639,7 +639,7 @@ class BackgroundRemoverDebug:
 @st.cache_resource
 def load_segmentation_model():
     """Cargar el modelo de segmentación (con cache para evitar recargas)."""
-    model_path = 'checkpoints/best_segmentation.pth'
+    model_path = 'checkpoints/resnet34/best_segmentation.pth'
 
     if not os.path.exists(model_path):
         st.error("❌ Modelo de segmentación no encontrado en 'checkpoints/best_segmentation.pth'")
@@ -766,42 +766,41 @@ def main():
         show_technical_info = st.checkbox("Mostrar información técnica", value=True)
         
         # Configuración de Composición
-        st.subheader("🎭 Composición Avanzada")
-        
-        # Controles de perspectiva y profundidad
-        st.write("**Perspectiva y Profundidad:**")
-        depth_distance = st.slider("Distancia percibida", 0.1, 3.0, 1.0, 0.1,
-                                 help="1.0 = Normal, <1.0 = Más cerca, >1.0 = Más lejos")
-        scale_factor = st.slider("Escala del sujeto", 0.3, 1.5, 1.0, 0.05,
-                               help="Ajusta el tamaño relativo del sujeto")
-        vertical_position = st.slider("Posición vertical", -0.3, 0.3, 0.0, 0.05,
-                                    help="Ajusta la posición vertical del sujeto")
-        blur_background = st.checkbox("Desenfocar fondo (bokeh)", value=False,
-                                    help="Simula profundidad de campo")
-        blur_strength = st.slider("Intensidad del bokeh", 1, 15, 5, 1,
-                                help="Mayor valor = más desenfoque") if blur_background else 5
+        with st.expander("🎭 Composición Avanzada"):
+            # Controles de perspectiva y profundidad
+            st.write("**Perspectiva y Profundidad:**")
+            depth_distance = st.slider("Distancia percibida", 0.1, 3.0, 1.0, 0.1,
+                                     help="1.0 = Normal, <1.0 = Más cerca, >1.0 = Más lejos")
+            scale_factor = st.slider("Escala del sujeto", 0.3, 1.5, 1.0, 0.05,
+                                   help="Ajusta el tamaño relativo del sujeto")
+            vertical_position = st.slider("Posición vertical", -0.3, 0.3, 0.0, 0.05,
+                                        help="Ajusta la posición vertical del sujeto")
+            blur_background = st.checkbox("Desenfocar fondo (bokeh)", value=False,
+                                        help="Simula profundidad de campo")
+            blur_strength = st.slider("Intensidad del bokeh", 1, 15, 5, 1,
+                                    help="Mayor valor = más desenfoque") if blur_background else 5
         
         # Configuración de Harmonización
-        st.subheader("🎨 Harmonización")
-        harmonization_enabled = st.checkbox("Aplicar harmonización", value=True)
-        blend_factor = st.slider("Intensidad de harmonización", 0.0, 1.0, 0.7, 0.1,
-                                help="0.0 = Solo composición, 1.0 = Solo harmonización")
-        preserve_sharpness = st.checkbox("Preservar nitidez", value=True,
-                                       help="Aplica filtros para mantener la calidad de imagen")
+        with st.expander("🎨 Harmonización"):
+            harmonization_enabled = st.checkbox("Aplicar harmonización", value=True)
+            blend_factor = st.slider("Intensidad de harmonización", 0.0, 1.0, 0.7, 0.1,
+                                    help="0.0 = Solo composición, 1.0 = Solo harmonización")
+            preserve_sharpness = st.checkbox("Preservar nitidez", value=True,
+                                           help="Aplica filtros para mantener la calidad de imagen")
         
         # Ajustes de color y transparencia
-        st.write("**Ajustes Finales:**")
-        col1_adj, col2_adj = st.columns(2)
-        with col1_adj:
-            brightness_adjust = st.slider("Brillo", -50, 50, 0, 5,
-                                        help="Ajuste de brillo general")
-            contrast_adjust = st.slider("Contraste", 0.5, 2.0, 1.0, 0.1,
-                                      help="Ajuste de contraste")
-        with col2_adj:
-            saturation_adjust = st.slider("Saturación", 0.0, 2.0, 1.0, 0.1,
-                                        help="Ajuste de saturación de colores")
-            final_opacity = st.slider("Opacidad final", 0.1, 1.0, 1.0, 0.05,
-                                    help="Transparencia del resultado final")
+        with st.expander("🎛️ Ajustes Finales"):
+            col1_adj, col2_adj = st.columns(2)
+            with col1_adj:
+                brightness_adjust = st.slider("Brillo", -50, 50, 0, 5,
+                                            help="Ajuste de brillo general")
+                contrast_adjust = st.slider("Contraste", 0.5, 2.0, 1.0, 0.1,
+                                          help="Ajuste de contraste")
+            with col2_adj:
+                saturation_adjust = st.slider("Saturación", 0.0, 2.0, 1.0, 0.1,
+                                            help="Ajuste de saturación de colores")
+                final_opacity = st.slider("Opacidad final", 0.1, 1.0, 1.0, 0.05,
+                                        help="Transparencia del resultado final")
 
         # Información del sistema
         device = 'CUDA' if torch.cuda.is_available() else 'CPU'

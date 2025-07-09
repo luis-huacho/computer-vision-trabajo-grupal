@@ -338,7 +338,7 @@ class SmartAutoCompositor:
         
         # Calculate position (center horizontally, ground-aligned vertically)
         pos_x = (bg_w - new_fg_w) // 2
-        pos_y = bg_h - new_fg_h - int(bg_h * 0.03)  # Small margin from bottom
+        pos_y = bg_h - new_fg_h - int(bg_h * 0.01)  # Reduced margin for better ground alignment
         
         return (new_fg_w, new_fg_h), (pos_x, pos_y), scale_factor
     
