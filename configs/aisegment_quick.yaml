@@ -1,0 +1,92 @@
+# Configuración para prueba rápida con AISegment Dataset
+# Dataset: 1000 imágenes para iteración rápida
+# Ideal para experimentación y validación de pipeline
+
+experiment:
+  name: "AISegment Quick Test - ResNet-34"
+  description: "Prueba rápida con 1000 imágenes del AISegment Dataset"
+  mode: "quick_test"
+
+model:
+  architecture: "resnet34"  # Modelo más ligero para pruebas
+  image_size: 384
+  use_pretrained: true
+  use_attention: true
+
+dataset:
+  type: "aisegment"
+  root: "datasets/AISegment"
+
+  # Descarga automática con kagglehub
+  auto_download: true
+  kaggle_dataset_id: "laurentmih/aisegmentcom-matting-human-datasets"
+
+  # Split train/val
+  train_val_split: 0.8  # 800 train, 200 val
+
+  # Usar solo 1000 imágenes para pruebas rápidas
+  sampling:
+    enabled: true
+    mode: "subset"
+    subset_size: 1000
+    strategy: "random"
+    random_seed: 42
+
+training:
+  num_epochs: 20       # Pocas epochs para pruebas
+  batch_size: 16
+  learning_rate: 0.0001
+  weight_decay: 0.000001
+  num_workers: 8
+  pin_memory: true
+  drop_last: true
+  gradient_clip_max_norm: 0.5
+  mixed_precision: true
+
+  scheduler:
+    type: "cosine_annealing"
+    T_0: 5
+    T_mult: 2
+
+  loss_weights:
+    alpha: 1.0
+    beta: 1.0
+    gamma: 0.5
+    delta: 0.3
+
+validation:
+  frequency: 1
+  early_stopping:
+    enabled: true
+    patience: 5
+    min_delta: 0.0001
+  target_metrics:
+    iou: 0.80
+    dice: 0.85
+    pixel_accuracy: 0.90
+
+checkpoints:
+  save_best: true
+  save_last: true
+  save_every_n_epochs: 5
+  checkpoint_dir: "checkpoints/aisegment_quick"
+
+logging:
+  log_every_n_batches: 5   # Log más frecuente
+  save_plots: true
+
+augmentation:
+  train:
+    horizontal_flip: 0.5
+    random_rotate90: 0.2   # Menos augmentación para pruebas
+    shift_scale_rotate:
+      enabled: true
+      shift_limit: 0.1
+      scale_limit: 0.15
+      rotate_limit: 10
+      p: 0.3
+    brightness_contrast:
+      enabled: true
+      brightness_limit: 0.15
+      contrast_limit: 0.15
+      p: 0.3

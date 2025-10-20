@@ -1,0 +1,91 @@
+# Configuración para pruebas rápidas con ResNet-34
+# Dataset reducido para iteración rápida y experimentación
+
+experiment:
+  name: "ResNet-34 Quick Test"
+  description: "Entrenamiento rápido con ResNet-34 y subset de 1000 imágenes"
+  mode: "quick_test"
+
+model:
+  architecture: "resnet34"
+  image_size: 384
+  use_pretrained: true
+  use_attention: true
+
+dataset:
+  type: "coco"
+  root: "datasets/COCO"
+  annotations_train: "annotations/person_keypoints_train2017.json"
+  annotations_val: "annotations/person_keypoints_val2017.json"
+  images_train: "train2017"
+  images_val: "val2017"
+  min_person_area: 500
+  min_keypoints: 3
+  train_val_split: 0.8
+
+  # Usar solo 1000 imágenes para pruebas rápidas
+  sampling:
+    enabled: true
+    mode: "subset"
+    subset_size: 1000
+    strategy: "random"
+    random_seed: 42
+
+training:
+  num_epochs: 20        # Menos épocas para pruebas
+  batch_size: 16
+  learning_rate: 0.0001
+  weight_decay: 0.000001
+  num_workers: 8
+  pin_memory: true
+  drop_last: true
+  gradient_clip_max_norm: 0.5
+  mixed_precision: true
+
+  scheduler:
+    type: "cosine_annealing"
+    T_0: 5             # Restart más frecuente
+    T_mult: 2
+
+  loss_weights:
+    alpha: 1.0
+    beta: 1.0
+    gamma: 0.5
+    delta: 0.3
+
+validation:
+  frequency: 1
+  early_stopping:
+    enabled: true
+    patience: 5       # Menos paciencia para pruebas
+    min_delta: 0.0001
+  target_metrics:
+    iou: 0.80         # Métricas más permisivas
+    dice: 0.85
+    pixel_accuracy: 0.90
+
+checkpoints:
+  save_best: true
+  save_last: true
+  save_every_n_epochs: 5
+  checkpoint_dir: "checkpoints/resnet34"
+
+logging:
+  log_every_n_batches: 5  # Log más frecuente
+  save_plots: true
+
+augmentation:
+  train:
+    horizontal_flip: 0.5
+    random_rotate90: 0.2  # Menos augmentación para pruebas rápidas
+    shift_scale_rotate:
+      enabled: true
+      shift_limit: 0.1
+      scale_limit: 0.15
+      rotate_limit: 10
+      p: 0.3
+    brightness_contrast:
+      enabled: true
+      brightness_limit: 0.15
+      contrast_limit: 0.15
+      p: 0.3

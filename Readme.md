@@ -1,4 +1,4 @@
-# 🎯 U-Net Background Removal System
+# U-Net Background Removal System
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-1.12+-orange.svg)](https://pytorch.org/)
@@ -6,17 +6,18 @@
 
 Un sistema avanzado de **eliminación de fondos** usando redes U-Net con soporte para múltiples datasets y aplicación web interactiva.
 
-## 🌟 Características Principales
+## Características Principales
 
-- **🧠 Arquitectura U-Net Avanzada**: Segmentación precisa de personas
-- **📊 Múltiples Datasets**: Soporte para COCO, Supervisely Persons y datasets personalizados
-- **🌐 Aplicación Web**: Interfaz Streamlit para uso inmediato
-- **⚡ GPU Optimizado**: Entrenamiento e inferencia acelerados
-- **📈 Métricas Completas**: IoU, Dice, Pixel Accuracy y análisis de calidad
-- **🔄 Sistema Modular**: Fácil extensión y personalización
-- **📱 Deployment Ready**: Listo para producción con Docker y API
+- **Arquitectura U-Net Avanzada**: ResNet-50/34 como backbone con Attention Gates
+- **3 Datasets Soportados**: COCO, AISegment Matting Human, Supervisely Persons
+- **Configuración YAML**: Sistema flexible de configs para experimentos
+- **Descarga Automática**: AISegment se descarga automáticamente con kagglehub
+- **Muestreo Inteligente**: Entrenar con subsets (10%, 1000 imgs, etc.)
+- **Aplicación Web**: Interfaz Streamlit para uso inmediato
+- **Multi-GPU**: Entrenamiento distribuido con DDP
+- **Métricas Completas**: IoU, Dice, Pixel Accuracy y análisis de calidad
 
-## 🚀 Inicio Rápido
+## Inicio Rápido
 
 ### 1. Configuración del Entorno
 
@@ -37,10 +38,21 @@ pip install -r requirements.txt
 
 ### 2. Preparar Dataset
 
-#### Opción A: Dataset COCO (Recomendado)
+#### Opción A: AISegment Matting Human (Recomendado - Descarga Automática)
+```bash
+# Configurar API de Kaggle (requerido solo una vez)
+mkdir -p ~/.kaggle
+# Copiar tu kaggle.json desde https://www.kaggle.com/settings
+# Ver docs/AISegment_Setup.md para instrucciones detalladas
+
+# El dataset se descarga automáticamente al entrenar
+python main.py train --config aisegment_quick
+```
+
+#### Opción B: Dataset COCO
 ```bash
 # Crear directorio y descargar
-mkdir COCO && cd COCO
+mkdir -p datasets/COCO && cd datasets/COCO
 
 # Descargar anotaciones y imágenes
 wget http://images.cocodataset.org/annotations/annotations_trainval2017.zip
@@ -49,13 +61,13 @@ wget http://images.cocodataset.org/zips/val2017.zip
 
 # Descomprimir
 unzip annotations_trainval2017.zip
-unzip train2017.zip  
+unzip train2017.zip
 unzip val2017.zip
 
-cd ..
+cd ../..
 ```
 
-#### Opción B: Dataset Supervisely Persons
+#### Opción C: Dataset Supervisely Persons (Legacy)
 ```bash
 # Estructura esperada:
 persons/
@@ -71,24 +83,38 @@ persons/
 ### 3. Verificar Sistema
 
 ```bash
-# Verificación completa (recomendada primera vez)
+# Verificación completa del sistema (recomendada primera vez)
+python verify_setup.py
+
+# Verificaciones específicas desde main.py
 python main.py verify
-
-# Verificación rápida de estructura
-python main.py quick
-
-# Análisis del dataset
-python main.py analyze
+python main.py status
+python main.py config
 ```
 
 ### 4. Entrenar Modelo
 
 ```bash
-# Entrenamiento automático con verificación
-python main.py
-
-# O entrenamiento directo
+# Con configuración por defecto (COCO)
 python main.py train
+
+# Prueba rápida con AISegment (1,000 imágenes)
+python main.py train --config aisegment_quick
+
+# Prueba rápida con COCO ResNet-34 (1,000 imágenes)
+python main.py train --config resnet34_quick
+
+# Entrenamiento completo AISegment (34,425 imágenes)
+python main.py train --config aisegment_full
+
+# Entrenamiento completo COCO ResNet-50
+python main.py train --config resnet50_full
+
+# Debugging (mínimo - 100 imágenes)
+python main.py train --config debug
+
+# Con config personalizado
+python main.py train --config-path mi_experimento.yaml
 ```
 
 ### 5. Usar Aplicación Web
@@ -101,60 +127,177 @@ pip install -r requirements-app.txt
 streamlit run app.py
 ```
 
-## 📋 Comandos Disponibles
+## Comandos Disponibles
 
 | Comando | Descripción | Tiempo Estimado |
 |---------|-------------|-----------------|
-| `python main.py` | **Modo automático** - Verificación + entrenamiento | 2-4 horas |
-| `python main.py verify` | Verificación completa del sistema | 2-3 minutos |
-| `python main.py quick` | Verificación rápida de estructura | 30 segundos |
-| `python main.py analyze` | Análisis estadístico del dataset | 1-2 minutos |
-| `python main.py train` | Entrenamiento directo | 2-4 horas |
-| `python main.py demo` | Demo de inferencia | 1 minuto |
+| `python verify_setup.py` | **Verificación completa** del sistema | 2-3 minutos |
+| `python main.py train` | Entrenamiento con config default | 2-4 horas |
+| `python main.py train --config aisegment_quick` | Prueba rápida AISegment (1K imgs) | 15-30 minutos |
+| `python main.py train --config resnet34_quick` | Prueba rápida COCO (1K imgs) | 15-30 minutos |
+| `python main.py train --config debug` | Test mínimo (100 imgs) | 5-10 minutos |
+| `python main.py harmonization` | Entrenar armonización | 1-2 horas |
+| `python main.py verify` | Verificación específica | 1-2 minutos |
+| `python main.py status` | Estado de módulos | 30 segundos |
+| `python main.py config` | Mostrar configuraciones | 10 segundos |
 | `streamlit run app.py` | Aplicación web interactiva | Inmediato |
 
-## ⚙️ Configuración del Sistema
+## Configuración del Sistema
 
-### Configuración de Entrenamiento (main.py)
+### Configuración via YAML (configs/*.yaml)
 
-```python
-config = {
-    'batch_size': 16,           # Ajustar según GPU (8 para ≤6GB VRAM)
-    'learning_rate': 1e-4,      # Learning rate conservador
-    'num_epochs': 100,          # Épocas de entrenamiento
-    'image_size': 384,          # Resolución de procesamiento
-    'weight_decay': 1e-6,       # Regularización
-    'num_workers': 8,           # Procesos paralelos
-    'device': 'auto',           # auto, cuda, cpu
-}
+```yaml
+# Ejemplo: configs/mi_experimento.yaml
+experiment:
+  name: "mi-experimento"
+  description: "Entrenamiento personalizado"
+
+model:
+  architecture: "resnet50"  # o "resnet34"
+
+dataset:
+  type: "aisegment"  # o "coco" o "supervisely"
+  root: "datasets/AISegment"
+  sampling:
+    enabled: true
+    mode: "percentage"  # o "subset" o "full"
+    percentage: 0.1  # 10% del dataset
+    strategy: "random"  # o "first" o "balanced"
+
+training:
+  batch_size: 16           # Ajustar según GPU (8 para ≤6GB VRAM)
+  learning_rate: 1e-4      # Learning rate conservador
+  num_epochs: 50           # Épocas de entrenamiento
+  image_size: 384          # Resolución de procesamiento
+  num_workers: 8           # Procesos paralelos
+  mixed_precision: true    # Usar AMP
 ```
 
 ### Optimización por Hardware
 
-```python
+```yaml
 # GPU con poca memoria (≤6GB VRAM)
-config.update({
-    'batch_size': 8,
-    'image_size': 256,
-    'num_workers': 4
-})
+training:
+  batch_size: 8
+  image_size: 256
+  num_workers: 4
+  gradient_accumulation_steps: 2
 
 # GPU potente (≥12GB VRAM)
-config.update({
-    'batch_size': 32,
-    'image_size': 512,
-    'num_workers': 12
-})
+training:
+  batch_size: 32
+  image_size: 512
+  num_workers: 12
+  mixed_precision: true
 
 # Solo CPU (no recomendado)
-config.update({
-    'batch_size': 4,
-    'image_size': 256,
-    'device': 'cpu'
-})
+training:
+  batch_size: 4
+  image_size: 256
+  num_workers: 2
+  mixed_precision: false
 ```
 
-## 📊 Arquitectura del Sistema
+### Configs Pre-configurados Disponibles
+
+| Config | Dataset | Imágenes | Arquitectura | Uso |
+|--------|---------|----------|--------------|-----|
+| `default.yaml` | COCO | Todas | ResNet-50 | Entrenamiento estándar |
+| `resnet50_full.yaml` | COCO | Todas | ResNet-50 | Producción |
+| `resnet34_quick.yaml` | COCO | 1,000 | ResNet-34 | Test rápido |
+| `resnet50_10percent.yaml` | COCO | 10% | ResNet-50 | Experimentación |
+| `aisegment_full.yaml` | AISegment | 34,425 | ResNet-50 | Mejor calidad |
+| `aisegment_10percent.yaml` | AISegment | ~3,400 | ResNet-50 | Experimentación |
+| `aisegment_quick.yaml` | AISegment | 1,000 | ResNet-50 | Test rápido |
+| `debug.yaml` | COCO | 100 | ResNet-50 | Debugging |
+
+## Sistema de Configuración YAML
+
+El proyecto utiliza un sistema flexible de configuración basado en archivos YAML que permite:
+
+- **Experimentación rápida** sin modificar código
+- **Versionado de experimentos** (configs en git)
+- **Muestreo de datos** para pruebas rápidas
+- **Múltiples datasets** (COCO, AISegment, Supervisely)
+- **Selección de arquitectura** (ResNet-50 o ResNet-34)
+
+### Crear Config Personalizado
+
+```bash
+# Copiar template
+cp configs/aisegment_full.yaml configs/mi_experimento.yaml
+
+# Editar según necesidades
+nano configs/mi_experimento.yaml
+
+# Ejecutar
+python main.py train --config mi_experimento
+```
+
+### Estructura de Config YAML
+
+```yaml
+experiment:
+  name: "nombre-del-experimento"
+  description: "Descripción breve"
+
+model:
+  architecture: "resnet50"  # o "resnet34"
+
+dataset:
+  type: "aisegment"  # o "coco" o "supervisely"
+  root: "datasets/AISegment"
+  auto_download: true
+  kaggle_dataset_id: "laurentmih/aisegmentcom-matting-human-datasets"
+
+  # Muestreo de datos
+  sampling:
+    enabled: true
+    mode: "percentage"  # "full", "subset", o "percentage"
+    percentage: 0.1     # Para mode: percentage
+    subset_size: 1000   # Para mode: subset
+    strategy: "random"  # "random", "first", o "balanced"
+
+training:
+  batch_size: 16
+  learning_rate: 1e-4
+  num_epochs: 50
+  image_size: 384
+  num_workers: 8
+  mixed_precision: true
+  gradient_clip_max_norm: 0.5
+```
+
+### Modos de Muestreo
+
+| Modo | Parámetro | Descripción | Ejemplo |
+|------|-----------|-------------|---------|
+| `full` | - | Todo el dataset | 34,425 imágenes (AISegment) |
+| `subset` | `subset_size` | Cantidad fija | 1,000 imágenes |
+| `percentage` | `percentage` | Porcentaje del total | 0.1 = 10% (~3,400 imgs) |
+
+**Estrategias de selección:**
+- `random`: Selección aleatoria (reproducible con seed)
+- `first`: Primeras N imágenes
+- `balanced`: Balanceado por categorías (si aplica)
+
+### Ejemplos de Uso
+
+```bash
+# Prueba rápida con 1000 imágenes
+python main.py train --config aisegment_quick
+
+# 10% del dataset para experimentación
+python main.py train --config aisegment_10percent
+
+# Dataset completo para producción
+python main.py train --config aisegment_full
+
+# Config personalizado
+python main.py train --config-path ~/mis_configs/experimento.yaml
+```
+
+## Arquitectura del Sistema
 
 ### Componentes Principales
 
@@ -188,16 +331,16 @@ graph TD
     G --> H[Inference/App]
 ```
 
-## 🎯 Usando la Aplicación Web
+## Usando la Aplicación Web
 
 ### Funcionalidades
 
-- **📤 Carga de Imágenes**: Drag & drop o selección manual
-- **⚙️ Configuración**: Ajuste de tamaño de procesamiento
-- **👁️ Modo Debug**: Visualización paso a paso del proceso
-- **📊 Análisis de Calidad**: Métricas automáticas del resultado
-- **💾 Descarga**: Resultado en PNG con transparencia
-- **📈 Estadísticas**: Cobertura, contraste y definición
+- **Carga de Imágenes**: Drag & drop o selección manual
+- **Configuración**: Ajuste de tamaño de procesamiento
+- **Modo Debug**: Visualización paso a paso del proceso
+- **Análisis de Calidad**: Métricas automáticas del resultado
+- **Descarga**: Resultado en PNG con transparencia
+- **Estadísticas**: Cobertura, contraste y definición
 
 ### Métricas de Calidad
 
@@ -208,7 +351,7 @@ La aplicación proporciona análisis automático:
 - **Calidad de Segmentación**: Score global (0-100)
 - **Recomendaciones**: Consejos para mejorar resultados
 
-## 🔧 Solución de Problemas
+## Solución de Problemas
 
 ### Errores Comunes
 
@@ -274,7 +417,7 @@ tail -f logs/training_*.log
 watch -n 2 nvidia-smi
 ```
 
-## 📈 Rendimiento y Benchmarks
+## Rendimiento y Benchmarks
 
 ### Métricas Objetivo
 
@@ -294,7 +437,7 @@ watch -n 2 nvidia-smi
 | **GTX 1080** | ~80ms | 16 | 8GB |
 | **CPU (i7)** | ~2000ms | 4 | 8GB |
 
-## 🌐 Deployment y Producción
+## Deployment y Producción
 
 ### Docker
 
@@ -345,13 +488,13 @@ model.save("optimized_model.pt")
 torch.onnx.export(model, dummy_input, "model.onnx")
 ```
 
-## 📚 Recursos y Referencias
+## Recursos y Referencias
 
 ### Documentación Adicional
 
-- 📖 **[README.COCO.md](README.COCO.md)**: Guía específica para dataset COCO
-- 🎭 **[README-app.md](README-app.md)**: Documentación de la aplicación web
-- 🔧 **[Docs/Utils.md](Docs/Utils.md)**: Herramientas y utilidades avanzadas
+- **[README.COCO.md](README.COCO.md)**: Guía específica para dataset COCO
+- **[README-app.md](README-app.md)**: Documentación de la aplicación web
+- **[Docs/Utils.md](Docs/Utils.md)**: Herramientas y utilidades avanzadas
 
 ### Papers de Referencia
 
@@ -361,10 +504,10 @@ torch.onnx.export(model, dummy_input, "model.onnx")
 
 ### Datasets
 
-- 🏷️ **COCO Dataset**: [cocodataset.org](https://cocodataset.org/)
-- 👥 **Supervisely Persons**: [app.supervisely.com](https://app.supervisely.com/)
+- **COCO Dataset**: [cocodataset.org](https://cocodataset.org/)
+- **Supervisely Persons**: [app.supervisely.com](https://app.supervisely.com/)
 
-## 🤝 Contribuciones y Desarrollo
+## Contribuciones y Desarrollo
 
 ### Autores
 
@@ -389,37 +532,61 @@ El proyecto está diseñado con arquitectura modular:
 4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
 5. Crear Pull Request
 
-## 📄 Licencia
+## Licencia
 
 Este proyecto está bajo la **Licencia MIT** para fines académicos y de investigación.
 
 ---
 
-## 🏁 TL;DR - Guía Ultra Rápida
+## TL;DR - Guía Ultra Rápida
 
+### Opción 1: AISegment (Más Fácil - Descarga Automática)
 ```bash
 # 1. Setup
-git clone <repo> && cd unet-background-removal
+git clone <repo> && cd computer-vision-trabajo-grupal
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
-# 2. Dataset (COCO recomendado)
-mkdir COCO && cd COCO
-wget http://images.cocodataset.org/annotations/annotations_trainval2017.zip
-wget http://images.cocodataset.org/zips/train2017.zip
-unzip *.zip && cd ..
+# 2. Configurar Kaggle API (una sola vez)
+mkdir -p ~/.kaggle
+# Descargar kaggle.json desde https://www.kaggle.com/settings
+# Copiar a ~/.kaggle/kaggle.json
 
-# 3. Verificar y entrenar
-python main.py verify
-python main.py train
+# 3. Verificar y entrenar (descarga automática de dataset)
+python verify_setup.py
+python main.py train --config aisegment_quick
 
 # 4. Usar app web
-pip install -r requirements-app.txt
 streamlit run app.py
 ```
 
-**¿Problemas?** → `python main.py quick` para verificación rápida
+### Opción 2: COCO (Tradicional)
+```bash
+# 1. Setup
+git clone <repo> && cd computer-vision-trabajo-grupal
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
 
-**¿Primera vez?** → Consulta [README.COCO.md](README.COCO.md) para guía detallada
+# 2. Dataset COCO
+mkdir -p datasets/COCO && cd datasets/COCO
+wget http://images.cocodataset.org/annotations/annotations_trainval2017.zip
+wget http://images.cocodataset.org/zips/train2017.zip
+unzip *.zip && cd ../..
+
+# 3. Verificar y entrenar
+python verify_setup.py
+python main.py train --config resnet34_quick
+
+# 4. Usar app web
+streamlit run app.py
+```
+
+**¿Problemas?** → `python verify_setup.py` para verificación completa
+
+**¿Primera vez?** → Consulta [CLAUDE.md](CLAUDE.md) para guía detallada
+
+**¿AISegment setup?** → Ver [docs/AISegment_Setup.md](docs/AISegment_Setup.md)
+
+**¿Configs YAML?** → Ver [configs/README.md](configs/README.md)
 
 **¿Producción?** → Ver sección Deployment o consultar [README-app.md](README-app.md)

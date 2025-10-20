@@ -1,0 +1,162 @@
+# Configuración por defecto para entrenamiento de segmentación
+# Proyecto: U-Net Background Removal with Harmonization
+# Autores: Luis Huacho y Dominick Alvarez - PUCP
+
+# ============================================================================
+# INFORMACIÓN DEL EXPERIMENTO
+# ============================================================================
+experiment:
+  name: "U-Net Segmentation - Default"
+  description: "Configuración estándar para entrenamiento de segmentación"
+  mode: "production"  # Opciones: production, debug, quick_test
+  version: "2.0"
+
+# ============================================================================
+# CONFIGURACIÓN DEL MODELO
+# ============================================================================
+model:
+  architecture: "resnet50"  # Opciones: resnet50, resnet34
+  image_size: 384
+  use_pretrained: true
+  use_attention: true
+
+# ============================================================================
+# CONFIGURACIÓN DEL DATASET
+# ============================================================================
+dataset:
+  # Tipo de dataset
+  type: "coco"  # Opciones: coco, aisegment, supervisely
+
+  # Paths (relativos al directorio base del proyecto)
+  root: "datasets/COCO"  # Actualizado: datasets/COCO/
+  annotations_train: "annotations/person_keypoints_train2017.json"
+  annotations_val: "annotations/person_keypoints_val2017.json"
+  images_train: "train2017"
+  images_val: "val2017"
+
+  # Filtros de calidad
+  min_person_area: 500  # Área mínima en píxeles para considerar una persona
+  min_keypoints: 3      # Mínimo número de keypoints visibles
+
+  # Split de datos
+  train_val_split: 0.8  # 80% train, 20% val
+
+  # ============================================================================
+  # MUESTREO / SUBSET DE DATOS (para experimentos rápidos)
+  # ============================================================================
+  sampling:
+    enabled: false           # Activar muestreo
+    mode: "full"            # Opciones: full, subset, percentage
+    # Si mode = "subset":
+    subset_size: null       # Número de imágenes a usar (ej: 1000)
+    # Si mode = "percentage":
+    percentage: null        # Porcentaje del dataset (ej: 0.1 para 10%)
+    # Estrategia de muestreo
+    strategy: "random"      # Opciones: random, first, balanced
+    random_seed: 42         # Seed para reproducibilidad
+
+# ============================================================================
+# CONFIGURACIÓN DE ENTRENAMIENTO
+# ============================================================================
+training:
+  # Hiperparámetros básicos
+  num_epochs: 100
+  batch_size: 16
+  learning_rate: 0.0001
+  weight_decay: 0.000001
+
+  # DataLoader
+  num_workers: 8
+  pin_memory: true
+  drop_last: true
+
+  # Optimización
+  gradient_clip_max_norm: 0.5
+  mixed_precision: true
+
+  # Learning Rate Scheduler
+  scheduler:
+    type: "cosine_annealing"  # Opciones: cosine_annealing, step, plateau
+    # Para cosine_annealing:
+    T_0: 10
+    T_mult: 2
+    # Para step:
+    step_size: 30
+    gamma: 0.1
+    # Para plateau:
+    patience: 10
+    factor: 0.5
+
+  # ============================================================================
+  # PESOS DE LAS FUNCIONES DE PÉRDIDA
+  # ============================================================================
+  loss_weights:
+    alpha: 1.0   # BCE (Binary Cross Entropy)
+    beta: 1.0    # Dice Loss
+    gamma: 0.5   # Perceptual Loss (VGG)
+    delta: 0.3   # Edge Loss
+
+# ============================================================================
+# CONFIGURACIÓN DE VALIDACIÓN
+# ============================================================================
+validation:
+  frequency: 1              # Validar cada N épocas
+  early_stopping:
+    enabled: true
+    patience: 15
+    min_delta: 0.0001
+
+  # Métricas objetivo
+  target_metrics:
+    iou: 0.85
+    dice: 0.90
+    pixel_accuracy: 0.95
+
+# ============================================================================
+# CONFIGURACIÓN DE CHECKPOINTS Y LOGGING
+# ============================================================================
+checkpoints:
+  save_best: true
+  save_last: true
+  save_every_n_epochs: 5
+  checkpoint_dir: "checkpoints"
+
+logging:
+  log_every_n_batches: 10
+  save_plots: true
+  plot_dpi: 300
+  tensorboard: false
+  wandb: false
+
+# ============================================================================
+# CONFIGURACIÓN DE AUMENTACIÓN DE DATOS
+# ============================================================================
+augmentation:
+  train:
+    horizontal_flip: 0.5
+    random_rotate90: 0.3
+    shift_scale_rotate:
+      enabled: true
+      shift_limit: 0.1
+      scale_limit: 0.2
+      rotate_limit: 15
+      p: 0.5
+    brightness_contrast:
+      enabled: true
+      brightness_limit: 0.2
+      contrast_limit: 0.2
+      p: 0.5
+    hue_saturation_value:
+      enabled: true
+      hue_shift_limit: 10
+      sat_shift_limit: 20
+      val_shift_limit: 10
+      p: 0.3
+    gaussian_blur:
+      enabled: true
+      blur_limit: 3
+      p: 0.2
+
+  val:
+    # Solo normalización para validación
+    normalize_only: true

@@ -24,7 +24,8 @@ class ExperimentConfig:
 
     # Directorios principales
     BASE_DIR = os.getcwd()
-    DATA_DIR = os.path.join(BASE_DIR, 'COCO')
+    DATASETS_DIR = os.path.join(BASE_DIR, 'datasets')  # Nuevo: directorio base de datasets
+    DATA_DIR = os.path.join(DATASETS_DIR, 'COCO')      # Actualizado: COCO dentro de datasets/
     CHECKPOINT_DIR = os.path.join(BASE_DIR, 'checkpoints')
     LOGS_DIR = os.path.join(BASE_DIR, 'logs')
     PLOTS_DIR = os.path.join(BASE_DIR, 'plots')
@@ -196,7 +197,7 @@ class COCOConfig:
     """
 
     # Paths del dataset COCO
-    COCO_ROOT = ExperimentConfig.DATA_DIR
+    COCO_ROOT = ExperimentConfig.DATA_DIR  # Ahora apunta a datasets/COCO
     TRAIN_ANNOTATIONS = os.path.join(COCO_ROOT, 'annotations', 'person_keypoints_train2017.json')
     VAL_ANNOTATIONS = os.path.join(COCO_ROOT, 'annotations', 'person_keypoints_val2017.json')
     TRAIN_IMAGES = os.path.join(COCO_ROOT, 'train2017')
@@ -235,6 +236,55 @@ class COCOConfig:
             'p': 0.2
         }
     }
+
+
+# ============================================================================
+# CONFIGURACIONES DE DATASET - AISEGMENT MATTING
+# ============================================================================
+
+class AISegmentConfig:
+    """
+    Configuración específica para el dataset AISegment Matting Human.
+
+    Dataset: https://www.kaggle.com/datasets/laurentmih/aisegmentcom-matting-human-datasets
+    34,425 imágenes de retratos de medio cuerpo con matting masks.
+    """
+
+    # Paths del dataset AISegment
+    AISEGMENT_ROOT = os.path.join(ExperimentConfig.DATASETS_DIR, 'AISegment')
+
+    # Configuración de Kaggle
+    KAGGLE_DATASET_ID = 'laurentmih/aisegmentcom-matting-human-datasets'
+    AUTO_DOWNLOAD = True  # Intentar descarga automática con kagglehub
+
+    # Estructura del dataset
+    IMAGES_DIR = 'clip_img'      # Directorio de imágenes RGB (JPG)
+    MASKS_DIR = 'matting'        # Directorio de máscaras (PNG con alpha)
+
+    # Dimensiones de imágenes
+    ORIGINAL_SIZE = (600, 800)   # Tamaño original del dataset (height, width)
+    RESIZED_SIZE = 384           # Tamaño para entrenamiento
+
+    # Split de datos
+    TRAIN_VAL_SPLIT = 0.8        # 80% train, 20% val
+    RANDOM_SEED = 42             # Para reproducibilidad del split
+
+    # Configuración de carga
+    NUM_SAMPLES = 34425          # Total de imágenes en el dataset
+
+    # Estructura jerárquica
+    # clip_img/{group-id}/clip_{subgroup-id}/{group-id}-{img-id}.jpg
+    # matting/{group-id}/matting_{subgroup-id}/{group-id}-{img-id}.png
+
+    @classmethod
+    def get_image_path_template(cls):
+        """Retorna template para paths de imágenes."""
+        return os.path.join(cls.AISEGMENT_ROOT, cls.IMAGES_DIR, '{group_id}', 'clip_{subgroup_id}', '{group_id}-{img_id}.jpg')
+
+    @classmethod
+    def get_mask_path_template(cls):
+        """Retorna template para paths de máscaras."""
+        return os.path.join(cls.AISEGMENT_ROOT, cls.MASKS_DIR, '{group_id}', 'matting_{subgroup_id}', '{group_id}-{img_id}.png')
 
 
 # ============================================================================
@@ -453,6 +503,7 @@ def get_all_configs():
         'segmentation': SegmentationConfig,
         'harmonization': HarmonizationConfig,
         'coco': COCOConfig,
+        'aisegment': AISegmentConfig,
         'inference': InferenceConfig,
         'logging': LoggingConfig,
         'validation': ValidationConfig,

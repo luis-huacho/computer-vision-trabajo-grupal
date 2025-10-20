@@ -1,0 +1,83 @@
+# Configuración para debugging
+# Parámetros mínimos para verificar pipeline completo
+
+experiment:
+  name: "Debug Mode"
+  description: "Configuración para debugging - dataset mínimo, pocas épocas"
+  mode: "debug"
+
+model:
+  architecture: "resnet34"  # Modelo más ligero para debug
+  image_size: 384
+  use_pretrained: true
+  use_attention: true
+
+dataset:
+  type: "coco"
+  root: "datasets/COCO"
+  annotations_train: "annotations/person_keypoints_train2017.json"
+  annotations_val: "annotations/person_keypoints_val2017.json"
+  images_train: "train2017"
+  images_val: "val2017"
+  min_person_area: 500
+  min_keypoints: 3
+  train_val_split: 0.8
+
+  # Usar solo 100 imágenes para debug
+  sampling:
+    enabled: true
+    mode: "subset"
+    subset_size: 100
+    strategy: "first"     # Tomar primeras 100 (más rápido que random)
+    random_seed: 42
+
+training:
+  num_epochs: 3          # Solo 3 épocas para verificar
+  batch_size: 4          # Batch pequeño
+  learning_rate: 0.0001
+  weight_decay: 0.000001
+  num_workers: 2         # Pocos workers
+  pin_memory: false
+  drop_last: false
+  gradient_clip_max_norm: 0.5
+  mixed_precision: false  # Sin mixed precision para debug
+
+  scheduler:
+    type: "step"
+    step_size: 2
+    gamma: 0.5
+
+  loss_weights:
+    alpha: 1.0
+    beta: 1.0
+    gamma: 0.5
+    delta: 0.3
+
+validation:
+  frequency: 1
+  early_stopping:
+    enabled: false      # Sin early stopping en debug
+  target_metrics:
+    iou: 0.50          # Métricas muy permisivas
+    dice: 0.60
+    pixel_accuracy: 0.70
+
+checkpoints:
+  save_best: true
+  save_last: false      # Solo guardar best en debug
+  save_every_n_epochs: 10  # No guardar intermedios
+  checkpoint_dir: "checkpoints/debug"
+
+logging:
+  log_every_n_batches: 1  # Log cada batch para debug
+  save_plots: true
+
+augmentation:
+  train:
+    horizontal_flip: 0.5
+    # Mínima augmentación para debug más rápido
+    random_rotate90: 0.0
+    shift_scale_rotate:
+      enabled: false
+    brightness_contrast:
+      enabled: false

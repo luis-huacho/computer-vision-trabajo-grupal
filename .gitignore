@@ -178,3 +178,42 @@ cython_debug/
 *.pth
 modelos/*
 pruebas/*
+
+# ============================================================================
+# PROJECT-SPECIFIC IGNORES
+# ============================================================================
+
+# Datasets (large files)
+datasets/COCO/
+datasets/AISegment/
+COCO/  # Legacy location
+dataset/foregrounds/
+dataset/backgrounds/
+
+# Checkpoints and Models
+checkpoints/*.pth
+checkpoints/**/*.pth
+!checkpoints/.gitkeep
+
+# Logs and Outputs
+logs/*.log
+logs/**/*.log
+!logs/.gitkeep
+plots/*.png
+plots/**/*.png
+!plots/.gitkeep
+
+# Output directories
+output_images/
+input_images/
+examples/*.png
+examples/*.jpg
+
+# Kaggle cache
+.kaggle/
+~/.cache/kagglehub/
+
+# Temporary experiment files
+experiments/
+temp/
+tmp/

@@ -7,7 +7,8 @@ Desarrollado por Luis Huacho y Dominick Alvarez - Maestría en Informática, PUC
 
 Uso:
     python main.py                    # Menú interactivo
-    python main.py segmentation       # Entrenar segmentación
+    python main.py train              # Entrenar segmentación
+    python main.py train --config resnet50_full  # Con config específico
     python main.py harmonization      # Entrenar harmonización
     python main.py demo               # Demo de inferencia
     python main.py setup              # Configurar datasets
@@ -19,6 +20,7 @@ Uso:
 
 import sys
 import os
+import argparse
 
 
 # ============================================================================
@@ -80,25 +82,65 @@ def print_system_status():
 # FUNCIONES DE EJECUCIÓN
 # ============================================================================
 
-def train_segmentation():
-    """Ejecuta el entrenamiento de segmentación usando multi-GPU si está disponible."""
+def train_segmentation(config_path=None, config_name=None):
+    """
+    Ejecuta el entrenamiento de segmentación usando multi-GPU si está disponible.
+
+    Args:
+        config_path: Path completo a archivo de configuración YAML
+        config_name: Nombre de configuración en carpeta configs/
+    """
     try:
         import torch
         import subprocess
         import os
-        
+        import json
+        import tempfile
+
         print("🔄 ENTRENAMIENTO DE SEGMENTACIÓN (MULTI-GPU)")
         print("=" * 40)
-        
+
+        # Cargar configuración desde YAML
+        try:
+            from config_loader import load_config, print_config_summary, print_available_configs
+
+            if config_path or config_name:
+                print(f"📋 Cargando configuración...")
+                config = load_config(
+                    config_path=config_path,
+                    config_name=config_name,
+                    validate=True,
+                    apply_to_settings=True
+                )
+                print_config_summary(config)
+            else:
+                print("📋 No se especificó configuración, cargando default.yaml...")
+                try:
+                    config = load_config(config_name="default", validate=True, apply_to_settings=True)
+                    print_config_summary(config)
+                except FileNotFoundError:
+                    print("⚠️  default.yaml no encontrado, usando configuración de settings.py")
+                    print()
+                    print_available_configs()
+                    config = None
+
+        except ImportError:
+            print("⚠️  config_loader.py no disponible, usando configuración de settings.py")
+            config = None
+
         # Verificar disponibilidad de GPUs
         if not torch.cuda.is_available():
             print("❌ CUDA no disponible. Usando CPU (no recomendado)...")
             # Fallback a entrenamiento tradicional
             try:
                 from trainer import train_segmentation as train_seg
-                from settings import get_segmentation_config
-                config = get_segmentation_config()
-                success = train_seg(config)
+                if config:
+                    success = train_seg(config)
+                else:
+                    from settings import get_segmentation_config
+                    settings_config = get_segmentation_config()
+                    success = train_seg(settings_config)
+
                 if success:
                     print("✅ Entrenamiento completado exitosamente!")
                 else:
@@ -106,23 +148,24 @@ def train_segmentation():
             except ImportError as e:
                 print(f"❌ Módulos necesarios no disponibles: {e}")
             return
-            
+
         gpu_count = torch.cuda.device_count()
         print(f"🔍 GPUs detectadas: {gpu_count}")
-        
-        # Verificar si trainer.py soporta DDP
+
+        # Verificar si trainer.py existe
         if not os.path.exists("trainer.py"):
             print("❌ trainer.py no encontrado")
+            print("💡 Puedes usar trainer-r34.py: torchrun --nproc_per_node=2 trainer-r34.py")
             return
-            
+
         # Leer trainer.py para verificar si tiene soporte DDP
         with open("trainer.py", "r") as f:
             trainer_content = f.read()
-            
-        has_ddp_support = ("torch.distributed" in trainer_content and 
+
+        has_ddp_support = ("torch.distributed" in trainer_content and
                           "DistributedDataParallel" in trainer_content and
                           "RANK" in trainer_content)
-        
+
         if has_ddp_support and gpu_count >= 1:
             # Usar entrenamiento distribuido
             if gpu_count < 2:
@@ -131,38 +174,60 @@ def train_segmentation():
             else:
                 nproc = min(gpu_count, 2)  # Usar máximo 2 GPUs
                 print(f"🚀 Usando {nproc} GPUs para entrenamiento distribuido")
-            
+
+            # Si hay config YAML, guardarla en archivo temporal y pasar path
+            env_vars = os.environ.copy()
+            if config:
+                # Crear archivo temporal con config
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                    json.dump(config, f)
+                    temp_config_path = f.name
+
+                # Pasar path del config como variable de entorno
+                env_vars['TRAIN_CONFIG_PATH'] = temp_config_path
+                print(f"📄 Configuración guardada en: {temp_config_path}")
+
             # Comando torchrun
             cmd = [
                 "torchrun",
                 f"--nproc_per_node={nproc}",
                 "trainer.py"
             ]
-            
+
             print(f"💻 Ejecutando comando: {' '.join(cmd)}")
             print("⏳ Iniciando entrenamiento distribuido...")
             print("-" * 40)
-            
+
             # Ejecutar torchrun
-            result = subprocess.run(cmd, capture_output=False, text=True)
-            
+            result = subprocess.run(cmd, capture_output=False, text=True, env=env_vars)
+
+            # Limpiar archivo temporal
+            if config and 'temp_config_path' in locals():
+                try:
+                    os.unlink(temp_config_path)
+                except:
+                    pass
+
             print("-" * 40)
             if result.returncode == 0:
                 print("✅ Entrenamiento de segmentación completado exitosamente!")
             else:
                 print(f"❌ Error en el entrenamiento. Código de salida: {result.returncode}")
-                
+
         else:
             # Fallback a entrenamiento tradicional
             if not has_ddp_support:
                 print("⚠️  trainer.py no tiene soporte DDP. Usando entrenamiento tradicional...")
-            
+
             from trainer import train_segmentation as train_seg
-            from settings import get_segmentation_config
-            
-            config = get_segmentation_config()
-            success = train_seg(config)
-            
+
+            if config:
+                success = train_seg(config)
+            else:
+                from settings import get_segmentation_config
+                settings_config = get_segmentation_config()
+                success = train_seg(settings_config)
+
             if success:
                 print("✅ Entrenamiento completado exitosamente!")
             else:
@@ -368,10 +433,10 @@ def interactive_menu():
     # Definir opciones disponibles
     options = []
 
-    # Opción 1: Segmentación
+    # Opción 1: Entrenamiento (Segmentación)
     if all([modules['models'], modules['datasets'], modules['trainer']]):
         print("1. Entrenar modelo de segmentación")
-        options.append(('1', train_segmentation))
+        options.append(('1', lambda: train_segmentation()))
     else:
         print("1. [DESHABILITADO] Entrenar segmentación (faltan módulos)")
 
@@ -454,14 +519,22 @@ def show_help():
     """Muestra la ayuda completa."""
     print(__doc__)
     print("\nEjemplos de uso:")
-    print("  python main.py                    # Menú interactivo")
-    print("  python main.py segmentation       # Entrenar segmentación directamente")
-    print("  python main.py harmonization      # Entrenar harmonización directamente")
-    print("  python main.py demo               # Ejecutar demo")
-    print("  python main.py setup              # Configurar datasets")
-    print("  python main.py verify             # Verificar sistema")
-    print("  python main.py config             # Mostrar configuraciones")
-    print("  python main.py status             # Estado de módulos")
+    print("  python main.py                              # Menú interactivo")
+    print("  python main.py train                        # Entrenar segmentación (usa default.yaml)")
+    print("  python main.py train --config resnet50_full # Entrenar con config específico")
+    print("  python main.py train --config-path path/to/config.yaml  # Config personalizado")
+    print("  python main.py harmonization                # Entrenar harmonización directamente")
+    print("  python main.py demo                         # Ejecutar demo")
+    print("  python main.py setup                        # Configurar datasets")
+    print("  python main.py verify                       # Verificar sistema")
+    print("  python main.py config                       # Mostrar configuraciones")
+    print("  python main.py status                       # Estado de módulos")
+    print("\nConfigs disponibles:")
+    try:
+        from config_loader import print_available_configs
+        print_available_configs()
+    except:
+        print("  (config_loader.py no disponible)")
 
 
 def initialize_system():
@@ -507,9 +580,38 @@ def main():
     if len(sys.argv) > 1:
         mode = sys.argv[1].lower()
 
-        # Mapeo de modos a funciones
+        # Comando especial para 'train' que acepta --config
+        if mode == 'train':
+            # Parsear argumentos adicionales para train
+            parser = argparse.ArgumentParser(
+                description='Entrenar modelo de segmentación',
+                prog='python main.py train'
+            )
+            parser.add_argument(
+                '--config',
+                type=str,
+                default=None,
+                help='Nombre del archivo de configuración en configs/ (sin extensión .yaml)'
+            )
+            parser.add_argument(
+                '--config-path',
+                type=str,
+                default=None,
+                help='Path completo al archivo de configuración YAML'
+            )
+
+            # Parsear solo los argumentos después de 'train'
+            args = parser.parse_args(sys.argv[2:])
+
+            # Ejecutar entrenamiento con configuración
+            train_segmentation(
+                config_path=args.config_path,
+                config_name=args.config
+            )
+            return
+
+        # Mapeo de modos a funciones (resto de comandos)
         mode_functions = {
-            'segmentation': train_segmentation,
             'harmonization': train_harmonization,
             'demo': run_demo,
             'setup': setup_system,
@@ -517,7 +619,9 @@ def main():
             'config': show_config,
             'status': print_system_status,
             'help': show_help,
-            'menu': interactive_menu
+            'menu': interactive_menu,
+            # Mantener 'segmentation' como alias de 'train' por compatibilidad
+            'segmentation': lambda: train_segmentation()
         }
 
         if mode in mode_functions:

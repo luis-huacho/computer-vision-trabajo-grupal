@@ -1,0 +1,98 @@
+# Configuración para entrenamiento completo con ResNet-50
+# Dataset completo COCO, entrenamiento de producción
+
+experiment:
+  name: "ResNet-50 Full Training"
+  description: "Entrenamiento completo con ResNet-50 en dataset COCO completo"
+  mode: "production"
+
+model:
+  architecture: "resnet50"
+  image_size: 384
+  use_pretrained: true
+  use_attention: true
+
+dataset:
+  type: "coco"
+  root: "datasets/COCO"
+  annotations_train: "annotations/person_keypoints_train2017.json"
+  annotations_val: "annotations/person_keypoints_val2017.json"
+  images_train: "train2017"
+  images_val: "val2017"
+  min_person_area: 500
+  min_keypoints: 3
+  train_val_split: 0.8
+
+  # Dataset completo - sin muestreo
+  sampling:
+    enabled: false
+    mode: "full"
+
+training:
+  num_epochs: 100
+  batch_size: 16
+  learning_rate: 0.0001
+  weight_decay: 0.000001
+  num_workers: 8
+  pin_memory: true
+  drop_last: true
+  gradient_clip_max_norm: 0.5
+  mixed_precision: true
+
+  scheduler:
+    type: "cosine_annealing"
+    T_0: 10
+    T_mult: 2
+
+  loss_weights:
+    alpha: 1.0
+    beta: 1.0
+    gamma: 0.5
+    delta: 0.3
+
+validation:
+  frequency: 1
+  early_stopping:
+    enabled: true
+    patience: 15
+    min_delta: 0.0001
+  target_metrics:
+    iou: 0.85
+    dice: 0.90
+    pixel_accuracy: 0.95
+
+checkpoints:
+  save_best: true
+  save_last: true
+  save_every_n_epochs: 5
+  checkpoint_dir: "checkpoints/resnet50"
+
+logging:
+  log_every_n_batches: 10
+  save_plots: true
+
+augmentation:
+  train:
+    horizontal_flip: 0.5
+    random_rotate90: 0.3
+    shift_scale_rotate:
+      enabled: true
+      shift_limit: 0.1
+      scale_limit: 0.2
+      rotate_limit: 15
+      p: 0.5
+    brightness_contrast:
+      enabled: true
+      brightness_limit: 0.2
+      contrast_limit: 0.2
+      p: 0.5
+    hue_saturation_value:
+      enabled: true
+      hue_shift_limit: 10
+      sat_shift_limit: 20
+      val_shift_limit: 10
+      p: 0.3
+    gaussian_blur:
+      enabled: true
+      blur_limit: 3
+      p: 0.2
