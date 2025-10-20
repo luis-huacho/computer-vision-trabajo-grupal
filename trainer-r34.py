@@ -409,7 +409,8 @@ def train_segmentation(config=None):
     # Preparar transforms
     try:
         from datasets import get_transforms
-        train_transform, val_transform = get_transforms()
+        train_transform = get_transforms(train=True, size=384)
+        val_transform = get_transforms(train=False, size=384)
     except ImportError:
         logger.warning("Módulo datasets no disponible, usando transforms básicos")
         train_transform = None

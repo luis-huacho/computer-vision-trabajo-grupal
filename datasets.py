@@ -259,22 +259,35 @@ class COCOPersonDataset(Dataset):
                 return dummy_image, dummy_target
 
 
-def get_transforms():
-    """Define transformaciones de aumentación de datos."""
-    train_transform = A.Compose([
-        A.HorizontalFlip(p=0.5),
-        A.RandomRotate90(p=0.3),
-        A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.5),
-        A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
-        A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, val_shift_limit=10, p=0.3),
-        A.GaussianBlur(blur_limit=3, p=0.2),
-    ], additional_targets={'mask': 'mask'})
+def get_transforms(train=True, size=384):
+    """
+    Define transformaciones de aumentación de datos.
 
-    val_transform = A.Compose([
-        # Solo normalización para validación
-    ], additional_targets={'mask': 'mask'})
+    Args:
+        train (bool): Si True, aplica augmentaciones completas. Si False, solo resize.
+        size (int): Tamaño target para resize (default: 384)
 
-    return train_transform, val_transform
+    Returns:
+        albumentations.Compose: Transformaciones a aplicar
+    """
+    if train:
+        # Transformaciones para entrenamiento: Resize + augmentaciones
+        transform = A.Compose([
+            A.Resize(size, size),
+            A.HorizontalFlip(p=0.5),
+            A.RandomRotate90(p=0.3),
+            A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.2, rotate_limit=15, p=0.5),
+            A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
+            A.HueSaturationValue(hue_shift_limit=10, sat_shift_limit=20, val_shift_limit=10, p=0.3),
+            A.GaussianBlur(blur_limit=3, p=0.2),
+        ], additional_targets={'mask': 'mask'})
+    else:
+        # Transformaciones para validación: Solo resize
+        transform = A.Compose([
+            A.Resize(size, size),
+        ], additional_targets={'mask': 'mask'})
+
+    return transform
 
 
 def create_sample_batch():

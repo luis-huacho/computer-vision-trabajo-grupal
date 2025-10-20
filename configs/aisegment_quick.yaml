@@ -3,12 +3,12 @@
 # Ideal para experimentación y validación de pipeline
 
 experiment:
-  name: "AISegment Quick Test - ResNet-34"
+  name: "AISegment Quick Test - ResNet-50"
   description: "Prueba rápida con 1000 imágenes del AISegment Dataset"
   mode: "quick_test"
 
 model:
-  architecture: "resnet34"  # Modelo más ligero para pruebas
+  architecture: "resnet50"  # ResNet-50 por defecto
   image_size: 384
   use_pretrained: true
   use_attention: true
