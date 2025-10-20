@@ -155,8 +155,14 @@ class Trainer:
             self.checkpoint_manager = None
 
         # Historial de entrenamiento
-        self.train_history = {'loss': [], 'iou': [], 'dice': []}
-        self.val_history = {'loss': [], 'iou': [], 'dice': []}
+        self.train_history = {
+            'loss': [], 'iou': [], 'dice': [],
+            'precision': [], 'recall': [], 'f1_score': []
+        }
+        self.val_history = {
+            'loss': [], 'iou': [], 'dice': [],
+            'precision': [], 'recall': [], 'f1_score': []
+        }
 
         # Logger
         self.logger = self._setup_logger()
@@ -195,6 +201,9 @@ class Trainer:
         epoch_losses = []
         epoch_ious = []
         epoch_dices = []
+        epoch_precisions = []
+        epoch_recalls = []
+        epoch_f1s = []
 
         for batch_idx, (images, targets) in enumerate(self.train_loader):
             try:
@@ -235,6 +244,9 @@ class Trainer:
                     epoch_losses.append(loss.item())
                     epoch_ious.append(metrics['iou'])
                     epoch_dices.append(metrics['dice'])
+                    epoch_precisions.append(metrics['precision'])
+                    epoch_recalls.append(metrics['recall'])
+                    epoch_f1s.append(metrics['f1_score'])
 
                 # Log progreso
                 if self.rank == 0 and batch_idx % 10 == 0:
@@ -249,14 +261,21 @@ class Trainer:
         avg_loss = np.mean(epoch_losses) if epoch_losses else 0
         avg_iou = np.mean(epoch_ious) if epoch_ious else 0
         avg_dice = np.mean(epoch_dices) if epoch_dices else 0
+        avg_precision = np.mean(epoch_precisions) if epoch_precisions else 0
+        avg_recall = np.mean(epoch_recalls) if epoch_recalls else 0
+        avg_f1 = np.mean(epoch_f1s) if epoch_f1s else 0
 
         self.train_history['loss'].append(avg_loss)
         self.train_history['iou'].append(avg_iou)
         self.train_history['dice'].append(avg_dice)
+        self.train_history['precision'].append(avg_precision)
+        self.train_history['recall'].append(avg_recall)
+        self.train_history['f1_score'].append(avg_f1)
 
         if self.rank == 0:
             self.logger.info(
-                f"Epoch {self.epoch} - Train Loss: {avg_loss:.4f}, IoU: {avg_iou:.4f}, Dice: {avg_dice:.4f}"
+                f"Epoch {self.epoch} - Train Loss: {avg_loss:.4f}, IoU: {avg_iou:.4f}, "
+                f"Dice: {avg_dice:.4f}, F1: {avg_f1:.4f}, Precision: {avg_precision:.4f}, Recall: {avg_recall:.4f}"
             )
 
     def validate(self):
@@ -265,6 +284,9 @@ class Trainer:
         val_losses = []
         val_ious = []
         val_dices = []
+        val_precisions = []
+        val_recalls = []
+        val_f1s = []
 
         with torch.no_grad():
             for images, targets in self.val_loader:
@@ -281,18 +303,28 @@ class Trainer:
                     metrics = self.metrics_calculator.calculate_metrics(outputs, targets)
                     val_ious.append(metrics['iou'])
                     val_dices.append(metrics['dice'])
+                    val_precisions.append(metrics['precision'])
+                    val_recalls.append(metrics['recall'])
+                    val_f1s.append(metrics['f1_score'])
 
         avg_loss = np.mean(val_losses) if val_losses else 0
         avg_iou = np.mean(val_ious) if val_ious else 0
         avg_dice = np.mean(val_dices) if val_dices else 0
+        avg_precision = np.mean(val_precisions) if val_precisions else 0
+        avg_recall = np.mean(val_recalls) if val_recalls else 0
+        avg_f1 = np.mean(val_f1s) if val_f1s else 0
 
         self.val_history['loss'].append(avg_loss)
         self.val_history['iou'].append(avg_iou)
         self.val_history['dice'].append(avg_dice)
+        self.val_history['precision'].append(avg_precision)
+        self.val_history['recall'].append(avg_recall)
+        self.val_history['f1_score'].append(avg_f1)
 
         if self.rank == 0:
             self.logger.info(
-                f"Epoch {self.epoch} - Val Loss: {avg_loss:.4f}, IoU: {avg_iou:.4f}, Dice: {avg_dice:.4f}"
+                f"Epoch {self.epoch} - Val Loss: {avg_loss:.4f}, IoU: {avg_iou:.4f}, "
+                f"Dice: {avg_dice:.4f}, F1: {avg_f1:.4f}, Precision: {avg_precision:.4f}, Recall: {avg_recall:.4f}"
             )
 
         return avg_loss, avg_iou, avg_dice
@@ -336,6 +368,34 @@ class Trainer:
 
         if self.rank == 0:
             self.logger.info("🎉 Entrenamiento completado!")
+
+            # Medir y loggear métricas de eficiencia
+            try:
+                from utils import EfficiencyMetrics
+                self.logger.info("\n📊 Métricas de Eficiencia del Modelo:")
+
+                # Determinar input size correcto según el modelo
+                # ResNet-50/34 esperan 3 canales de entrada (RGB)
+                input_size = (1, 3, self.config.get('image_size', 384), self.config.get('image_size', 384))
+
+                # Obtener modelo sin DDP wrapper para mediciones
+                model_to_measure = self.model.module if hasattr(self.model, 'module') else self.model
+
+                efficiency = EfficiencyMetrics.get_all_efficiency_metrics(
+                    model_to_measure,
+                    input_size=input_size,
+                    device=self.device,
+                    num_runs=50  # Reducido para no demorar mucho
+                )
+
+                self.logger.info(f"  • Parámetros totales: {efficiency['total_params_M']:.2f}M ({efficiency['total_params']:,})")
+                self.logger.info(f"  • Parámetros entrenables: {efficiency['trainable_params_M']:.2f}M ({efficiency['trainable_params']:,})")
+                self.logger.info(f"  • FPS (Frames por segundo): {efficiency['fps']:.2f}")
+                self.logger.info(f"  • Tiempo promedio por imagen: {efficiency['avg_time_ms']:.2f} ± {efficiency['std_time_ms']:.2f} ms")
+                self.logger.info(f"  • Memoria GPU pico: {efficiency['peak_memory_mb']:.2f} MB")
+                self.logger.info(f"  • Memoria GPU asignada: {efficiency['allocated_memory_mb']:.2f} MB")
+            except Exception as e:
+                self.logger.warning(f"⚠️  No se pudieron calcular métricas de eficiencia: {e}")
 
 
 # ============================================================================

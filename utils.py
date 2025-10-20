@@ -213,6 +213,103 @@ class MetricsCalculator:
 
         return correct / total
 
+    @staticmethod
+    def calculate_precision(pred, target, threshold=0.5):
+        """
+        Calcula Precision: True Positives / (True Positives + False Positives)
+
+        Args:
+            pred: Predicción del modelo (tensor)
+            target: Ground truth (tensor)
+            threshold: Umbral para binarización
+
+        Returns:
+            Precision score (tensor)
+        """
+        pred_binary = (pred > threshold).float()
+        target_binary = (target > threshold).float()
+
+        true_positive = (pred_binary * target_binary).sum()
+        predicted_positive = pred_binary.sum()
+
+        if predicted_positive == 0:
+            return torch.tensor(1.0, device=pred.device)
+
+        return true_positive / predicted_positive
+
+    @staticmethod
+    def calculate_recall(pred, target, threshold=0.5):
+        """
+        Calcula Recall: True Positives / (True Positives + False Negatives)
+
+        Args:
+            pred: Predicción del modelo (tensor)
+            target: Ground truth (tensor)
+            threshold: Umbral para binarización
+
+        Returns:
+            Recall score (tensor)
+        """
+        pred_binary = (pred > threshold).float()
+        target_binary = (target > threshold).float()
+
+        true_positive = (pred_binary * target_binary).sum()
+        actual_positive = target_binary.sum()
+
+        if actual_positive == 0:
+            return torch.tensor(1.0, device=pred.device)
+
+        return true_positive / actual_positive
+
+    @staticmethod
+    def calculate_f1_score(pred, target, threshold=0.5):
+        """
+        Calcula F1-Score: 2 * (Precision * Recall) / (Precision + Recall)
+
+        Args:
+            pred: Predicción del modelo (tensor)
+            target: Ground truth (tensor)
+            threshold: Umbral para binarización
+
+        Returns:
+            F1 score (tensor)
+        """
+        precision = MetricsCalculator.calculate_precision(pred, target, threshold)
+        recall = MetricsCalculator.calculate_recall(pred, target, threshold)
+
+        if precision + recall == 0:
+            return torch.tensor(0.0, device=pred.device)
+
+        return 2 * (precision * recall) / (precision + recall)
+
+    def calculate_metrics(self, pred, target, threshold=0.5):
+        """
+        Calcula todas las métricas de evaluación.
+
+        Args:
+            pred: Predicción del modelo (tensor)
+            target: Ground truth (tensor)
+            threshold: Umbral para binarización
+
+        Returns:
+            dict: {
+                'iou': float,
+                'dice': float,
+                'pixel_accuracy': float,
+                'precision': float,
+                'recall': float,
+                'f1_score': float
+            }
+        """
+        return {
+            'iou': self.calculate_iou(pred, target, threshold).item(),
+            'dice': self.calculate_dice(pred, target, threshold).item(),
+            'pixel_accuracy': self.calculate_pixel_accuracy(pred, target, threshold).item(),
+            'precision': self.calculate_precision(pred, target, threshold).item(),
+            'recall': self.calculate_recall(pred, target, threshold).item(),
+            'f1_score': self.calculate_f1_score(pred, target, threshold).item()
+        }
+
 
 class ModelCheckpoint:
     """
@@ -357,6 +454,163 @@ class LossCalculator:
             'perceptual_loss': perceptual_loss,
             'edge_loss': edge_loss
         }
+
+
+class EfficiencyMetrics:
+    """
+    Métricas de eficiencia para documentación científica del paper.
+    Mide FPS, parámetros del modelo, y uso de memoria GPU.
+    """
+
+    @staticmethod
+    def measure_inference_speed(model, input_size=(1, 4, 384, 384), device='cuda', num_runs=100):
+        """
+        Mide FPS y tiempo promedio de inferencia.
+
+        Args:
+            model: Modelo PyTorch
+            input_size: Tamaño de entrada (batch, channels, height, width)
+            device: 'cuda' o 'cpu'
+            num_runs: Número de iteraciones para promediar
+
+        Returns:
+            dict: {
+                'fps': float,
+                'avg_time_ms': float,
+                'std_time_ms': float
+            }
+        """
+        import time
+
+        model.eval()
+        dummy_input = torch.randn(input_size).to(device)
+
+        # Warmup
+        with torch.no_grad():
+            for _ in range(10):
+                _ = model(dummy_input)
+
+        # Sincronizar CUDA si es GPU
+        if device == 'cuda' and torch.cuda.is_available():
+            torch.cuda.synchronize()
+
+        # Measure
+        times = []
+        with torch.no_grad():
+            for _ in range(num_runs):
+                if device == 'cuda' and torch.cuda.is_available():
+                    torch.cuda.synchronize()
+                start = time.time()
+                _ = model(dummy_input)
+                if device == 'cuda' and torch.cuda.is_available():
+                    torch.cuda.synchronize()
+                end = time.time()
+                times.append((end - start) * 1000)  # Convert to ms
+
+        avg_time = np.mean(times)
+        std_time = np.std(times)
+        fps = 1000.0 / avg_time if avg_time > 0 else 0
+
+        return {
+            'fps': fps,
+            'avg_time_ms': avg_time,
+            'std_time_ms': std_time
+        }
+
+    @staticmethod
+    def count_parameters(model):
+        """
+        Cuenta parámetros totales y entrenables del modelo.
+
+        Args:
+            model: Modelo PyTorch
+
+        Returns:
+            dict: {
+                'total_params': int,
+                'trainable_params': int,
+                'total_params_M': float,  # En millones
+                'trainable_params_M': float
+            }
+        """
+        total_params = sum(p.numel() for p in model.parameters())
+        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+        return {
+            'total_params': total_params,
+            'trainable_params': trainable_params,
+            'total_params_M': total_params / 1e6,
+            'trainable_params_M': trainable_params / 1e6
+        }
+
+    @staticmethod
+    def measure_gpu_memory(model, input_size=(1, 4, 384, 384), device='cuda'):
+        """
+        Mide uso de memoria GPU durante inferencia.
+
+        Args:
+            model: Modelo PyTorch
+            input_size: Tamaño de entrada (batch, channels, height, width)
+            device: 'cuda' o 'cpu'
+
+        Returns:
+            dict: {
+                'peak_memory_mb': float,
+                'allocated_memory_mb': float
+            }
+        """
+        if device != 'cuda' or not torch.cuda.is_available():
+            return {
+                'peak_memory_mb': 0,
+                'allocated_memory_mb': 0
+            }
+
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.empty_cache()
+
+        dummy_input = torch.randn(input_size).to(device)
+
+        model.eval()
+        with torch.no_grad():
+            _ = model(dummy_input)
+
+        peak_memory = torch.cuda.max_memory_allocated() / 1024**2  # MB
+        allocated_memory = torch.cuda.memory_allocated() / 1024**2  # MB
+
+        return {
+            'peak_memory_mb': peak_memory,
+            'allocated_memory_mb': allocated_memory
+        }
+
+    @staticmethod
+    def get_all_efficiency_metrics(model, input_size=(1, 4, 384, 384), device='cuda', num_runs=100):
+        """
+        Obtiene todas las métricas de eficiencia de una vez.
+
+        Args:
+            model: Modelo PyTorch
+            input_size: Tamaño de entrada (batch, channels, height, width)
+            device: 'cuda' o 'cpu'
+            num_runs: Número de iteraciones para medir FPS
+
+        Returns:
+            dict con todas las métricas de eficiencia
+        """
+        metrics = {}
+
+        # Parámetros del modelo
+        params = EfficiencyMetrics.count_parameters(model)
+        metrics.update(params)
+
+        # Velocidad de inferencia
+        speed = EfficiencyMetrics.measure_inference_speed(model, input_size, device, num_runs)
+        metrics.update(speed)
+
+        # Uso de memoria GPU
+        memory = EfficiencyMetrics.measure_gpu_memory(model, input_size, device)
+        metrics.update(memory)
+
+        return metrics
 
 
 def quick_coco_test():

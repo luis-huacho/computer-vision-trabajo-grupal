@@ -1,0 +1,59 @@
+# Configuración de prueba para CPU - Verificación de métricas
+# Subset mínimo para testear el sistema de logging de métricas
+
+experiment:
+  name: "CPU Test - Métricas Científicas"
+  description: "Prueba de logging de métricas (Precision, Recall, F1, Efficiency)"
+  mode: "debug"
+
+model:
+  architecture: "resnet34"  # Más ligero para CPU
+  image_size: 256           # Reducido para CPU
+  use_pretrained: true
+  use_attention: false      # Desactivado para velocidad en CPU
+
+dataset:
+  type: "aisegment"         # AISegment tiene mejor interfaz para el trainer
+  root: "datasets/AISegment"
+  auto_download: true       # Descarga automática si no existe
+  train_val_split: 0.8
+  random_seed: 42
+
+  # SUBSET MÍNIMO para prueba rápida en CPU
+  sampling:
+    enabled: true
+    mode: "subset"
+    subset_size: 10         # Solo 10 imágenes total
+    strategy: "first"       # Tomar las primeras para consistencia
+    random_seed: 42
+
+training:
+  num_epochs: 2             # Solo 2 epochs para prueba
+  batch_size: 2             # Batch pequeño para CPU
+  learning_rate: 0.0001
+  weight_decay: 0.000001
+  num_workers: 0            # IMPORTANTE: 0 workers para CPU
+  pin_memory: false         # Desactivado para CPU
+  mixed_precision: false    # Desactivado para CPU
+  gradient_clip_max_norm: 0.5
+
+  scheduler:
+    type: "cosine_annealing"
+    T_0: 5
+    T_mult: 1
+
+  loss_weights:
+    alpha: 1.0    # BCE
+    beta: 1.0     # Dice
+    gamma: 0.5    # Perceptual
+    delta: 0.3    # Edge
+
+validation:
+  frequency: 1
+  early_stopping:
+    enabled: false          # Desactivado para prueba
+
+checkpoints:
+  save_best: true
+  save_last: true
+  checkpoint_dir: "checkpoints/cpu_test"
