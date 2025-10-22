@@ -1,0 +1,82 @@
+2025-10-21 23:30:52,076 - INFO - Epoch 1 - Train Loss: 0.3658, IoU: 0.5038, Dice: 0.6656, F1: 0.6656, Precision: 0.7723, Recall: 0.6268
+2025-10-21 23:31:32,445 - INFO - Epoch 1 - Val Loss: 0.1567, IoU: 0.5468, Dice: 0.7023, F1: 0.7023, Precision: 0.9736, Recall: 0.5553
+2025-10-21 23:31:37,878 - INFO - ✅ Mejor modelo guardado en checkpoints/aisegment_10pct_lowmem/best_segmentation.pth (IoU: 0.5468)
+2025-10-21 23:37:27,954 - INFO - Epoch 2 - Train Loss: 0.1836, IoU: 0.5623, Dice: 0.7152, F1: 0.7152, Precision: 0.9394, Recall: 0.5855
+2025-10-21 23:37:54,859 - INFO - Epoch 2 - Val Loss: 0.1017, IoU: 0.6044, Dice: 0.7482, F1: 0.7482, Precision: 0.9749, Recall: 0.6142
+2025-10-21 23:38:01,815 - INFO - ✅ Mejor modelo guardado en checkpoints/aisegment_10pct_lowmem/best_segmentation.pth (IoU: 0.6044)
+2025-10-21 23:43:52,875 - INFO - Epoch 3 - Train Loss: 0.1234, IoU: 0.5857, Dice: 0.7344, F1: 0.7344, Precision: 0.9338, Recall: 0.6135
+2025-10-21 23:44:19,783 - INFO - Epoch 3 - Val Loss: 0.0818, IoU: 0.6021, Dice: 0.7462, F1: 0.7462, Precision: 0.9844, Recall: 0.6081
+2025-10-21 23:50:11,123 - INFO - Epoch 4 - Train Loss: 0.0955, IoU: 0.5910, Dice: 0.7384, F1: 0.7384, Precision: 0.9361, Recall: 0.6185
+2025-10-21 23:50:38,042 - INFO - Epoch 4 - Val Loss: 0.0712, IoU: 0.6116, Dice: 0.7537, F1: 0.7537, Precision: 0.9824, Recall: 0.6186
+2025-10-21 23:50:44,966 - INFO - ✅ Mejor modelo guardado en checkpoints/aisegment_10pct_lowmem/best_segmentation.pth (IoU: 0.6116)
+2025-10-21 23:56:36,398 - INFO - Epoch 5 - Train Loss: 0.0796, IoU: 0.5914, Dice: 0.7389, F1: 0.7389, Precision: 0.9373, Recall: 0.6187
+2025-10-21 23:57:03,311 - INFO - Epoch 5 - Val Loss: 0.0667, IoU: 0.6140, Dice: 0.7555, F1: 0.7555, Precision: 0.9812, Recall: 0.6216
+2025-10-21 23:57:10,324 - INFO - ✅ Mejor modelo guardado en checkpoints/aisegment_10pct_lowmem/best_segmentation.pth (IoU: 0.6140)
+2025-10-22 00:03:01,786 - INFO - Epoch 6 - Train Loss: 0.1209, IoU: 0.5891, Dice: 0.7367, F1: 0.7367, Precision: 0.9310, Recall: 0.6179
+2025-10-22 00:03:28,724 - INFO - Epoch 6 - Val Loss: 0.0749, IoU: 0.6102, Dice: 0.7527, F1: 0.7527, Precision: 0.9806, Recall: 0.6179
+2025-10-22 00:09:20,588 - INFO - Epoch 7 - Train Loss: 0.1070, IoU: 0.5915, Dice: 0.7389, F1: 0.7389, Precision: 0.9303, Recall: 0.6209
+2025-10-22 00:09:47,509 - INFO - Epoch 7 - Val Loss: 0.0780, IoU: 0.6110, Dice: 0.7533, F1: 0.7533, Precision: 0.9832, Recall: 0.6177
+2025-10-22 00:15:39,267 - INFO - Epoch 8 - Train Loss: 0.0926, IoU: 0.5970, Dice: 0.7430, F1: 0.7430, Precision: 0.9384, Recall: 0.6236
+2025-10-22 00:16:06,170 - INFO - Epoch 8 - Val Loss: 0.0717, IoU: 0.6195, Dice: 0.7600, F1: 0.7600, Precision: 0.9768, Recall: 0.6290
+2025-10-22 00:16:13,158 - INFO - ✅ Mejor modelo guardado en checkpoints/aisegment_10pct_lowmem/best_segmentation.pth (IoU: 0.6195)
+2025-10-22 00:22:04,773 - INFO - Epoch 9 - Train Loss: 0.0869, IoU: 0.6073, Dice: 0.7514, F1: 0.7514, Precision: 0.9422, Recall: 0.6328
+2025-10-22 00:22:31,699 - INFO - Epoch 9 - Val Loss: 0.0650, IoU: 0.6114, Dice: 0.7537, F1: 0.7537, Precision: 0.9890, Recall: 0.6157
+2025-10-22 00:28:23,308 - INFO - Epoch 10 - Train Loss: 0.0775, IoU: 0.6220, Dice: 0.7625, F1: 0.7625, Precision: 0.9439, Recall: 0.6481
+2025-10-22 00:28:50,233 - INFO - Epoch 10 - Val Loss: 0.0624, IoU: 0.6355, Dice: 0.7724, F1: 0.7724, Precision: 0.9712, Recall: 0.6478
+2025-10-22 00:28:57,244 - INFO - ✅ Mejor modelo guardado en checkpoints/aisegment_10pct_lowmem/best_segmentation.pth (IoU: 0.6355)
+2025-10-22 00:34:49,054 - INFO - Epoch 11 - Train Loss: 0.0683, IoU: 0.6304, Dice: 0.7692, F1: 0.7692, Precision: 0.9447, Recall: 0.6572
+2025-10-22 00:35:15,986 - INFO - Epoch 11 - Val Loss: 0.0603, IoU: 0.6575, Dice: 0.7890, F1: 0.7890, Precision: 0.9687, Recall: 0.6719
+2025-10-22 00:35:22,987 - INFO - ✅ Mejor modelo guardado en checkpoints/aisegment_10pct_lowmem/best_segmentation.pth (IoU: 0.6575)
+2025-10-22 00:41:14,653 - INFO - Epoch 12 - Train Loss: 0.0629, IoU: 0.6422, Dice: 0.7785, F1: 0.7785, Precision: 0.9463, Recall: 0.6689
+2025-10-22 00:41:41,597 - INFO - Epoch 12 - Val Loss: 0.0626, IoU: 0.6470, Dice: 0.7811, F1: 0.7811, Precision: 0.9858, Recall: 0.6532
+2025-10-22 00:47:33,586 - INFO - Epoch 13 - Train Loss: 0.0589, IoU: 0.6529, Dice: 0.7862, F1: 0.7862, Precision: 0.9487, Recall: 0.6791
+2025-10-22 00:48:00,514 - INFO - Epoch 13 - Val Loss: 0.0563, IoU: 0.6669, Dice: 0.7960, F1: 0.7960, Precision: 0.9647, Recall: 0.6837
+2025-10-22 00:48:07,498 - INFO - ✅ Mejor modelo guardado en checkpoints/aisegment_10pct_lowmem/best_segmentation.pth (IoU: 0.6669)
+2025-10-22 00:53:59,182 - INFO - Epoch 14 - Train Loss: 0.0539, IoU: 0.6597, Dice: 0.7912, F1: 0.7912, Precision: 0.9480, Recall: 0.6870
+2025-10-22 00:54:26,108 - INFO - Epoch 14 - Val Loss: 0.0554, IoU: 0.6756, Dice: 0.8021, F1: 0.8021, Precision: 0.9830, Recall: 0.6836
+2025-10-22 00:54:33,040 - INFO - ✅ Mejor modelo guardado en checkpoints/aisegment_10pct_lowmem/best_segmentation.pth (IoU: 0.6756)
+2025-10-22 01:00:24,923 - INFO - Epoch 15 - Train Loss: 0.0548, IoU: 0.6608, Dice: 0.7921, F1: 0.7921, Precision: 0.9504, Recall: 0.6868
+2025-10-22 01:00:51,850 - INFO - Epoch 15 - Val Loss: 0.0554, IoU: 0.6668, Dice: 0.7959, F1: 0.7959, Precision: 0.9875, Recall: 0.6725
+2025-10-22 01:06:43,684 - INFO - Epoch 16 - Train Loss: 0.0866, IoU: 0.6581, Dice: 0.7904, F1: 0.7904, Precision: 0.9465, Recall: 0.6863
+2025-10-22 01:07:10,588 - INFO - Epoch 16 - Val Loss: 0.0645, IoU: 0.6566, Dice: 0.7884, F1: 0.7884, Precision: 0.9862, Recall: 0.6628
+2025-10-22 01:13:02,375 - INFO - Epoch 17 - Train Loss: 0.0822, IoU: 0.6695, Dice: 0.7989, F1: 0.7989, Precision: 0.9475, Recall: 0.6982
+2025-10-22 01:13:29,310 - INFO - Epoch 17 - Val Loss: 0.0726, IoU: 0.6634, Dice: 0.7933, F1: 0.7933, Precision: 0.9857, Recall: 0.6701
+2025-10-22 01:19:21,145 - INFO - Epoch 18 - Train Loss: 0.0816, IoU: 0.6871, Dice: 0.8114, F1: 0.8114, Precision: 0.9499, Recall: 0.7157
+2025-10-22 01:19:48,068 - INFO - Epoch 18 - Val Loss: 0.0656, IoU: 0.6848, Dice: 0.8088, F1: 0.8088, Precision: 0.9846, Recall: 0.6923
+2025-10-22 01:19:55,316 - INFO - ✅ Mejor modelo guardado en checkpoints/aisegment_10pct_lowmem/best_segmentation.pth (IoU: 0.6848)
+2025-10-22 01:25:46,967 - INFO - Epoch 19 - Train Loss: 0.0754, IoU: 0.6982, Dice: 0.8194, F1: 0.8194, Precision: 0.9525, Recall: 0.7256
+2025-10-22 01:26:13,877 - INFO - Epoch 19 - Val Loss: 0.0638, IoU: 0.7109, Dice: 0.8271, F1: 0.8271, Precision: 0.9774, Recall: 0.7229
+2025-10-22 01:26:20,806 - INFO - ✅ Mejor modelo guardado en checkpoints/aisegment_10pct_lowmem/best_segmentation.pth (IoU: 0.7109)
+2025-10-22 01:32:12,140 - INFO - Epoch 20 - Train Loss: 0.0764, IoU: 0.7167, Dice: 0.8322, F1: 0.8322, Precision: 0.9548, Recall: 0.7433
+2025-10-22 01:32:39,049 - INFO - Epoch 20 - Val Loss: 0.0675, IoU: 0.6856, Dice: 0.8096, F1: 0.8096, Precision: 0.9525, Recall: 0.7102
+2025-10-22 01:38:30,516 - INFO - Epoch 21 - Train Loss: 0.0695, IoU: 0.7228, Dice: 0.8364, F1: 0.8364, Precision: 0.9530, Recall: 0.7519
+2025-10-22 01:38:57,417 - INFO - Epoch 21 - Val Loss: 0.0679, IoU: 0.6948, Dice: 0.8161, F1: 0.8161, Precision: 0.9801, Recall: 0.7050
+2025-10-22 01:44:48,678 - INFO - Epoch 22 - Train Loss: 0.0692, IoU: 0.7269, Dice: 0.8393, F1: 0.8393, Precision: 0.9562, Recall: 0.7538
+2025-10-22 01:45:15,591 - INFO - Epoch 22 - Val Loss: 0.0622, IoU: 0.7303, Dice: 0.8405, F1: 0.8405, Precision: 0.9873, Recall: 0.7373
+2025-10-22 01:45:22,498 - INFO - ✅ Mejor modelo guardado en checkpoints/aisegment_10pct_lowmem/best_segmentation.pth (IoU: 0.7303)
+2025-10-22 01:51:13,813 - INFO - Epoch 23 - Train Loss: 0.0608, IoU: 0.7289, Dice: 0.8406, F1: 0.8406, Precision: 0.9579, Recall: 0.7548
+2025-10-22 01:51:40,731 - INFO - Epoch 23 - Val Loss: 0.0588, IoU: 0.7780, Dice: 0.8723, F1: 0.8723, Precision: 0.9787, Recall: 0.7915
+2025-10-22 01:51:47,682 - INFO - ✅ Mejor modelo guardado en checkpoints/aisegment_10pct_lowmem/best_segmentation.pth (IoU: 0.7780)
+2025-10-22 01:57:38,823 - INFO - Epoch 24 - Train Loss: 0.0590, IoU: 0.7415, Dice: 0.8494, F1: 0.8494, Precision: 0.9568, Recall: 0.7692
+2025-10-22 01:58:05,729 - INFO - Epoch 24 - Val Loss: 0.0614, IoU: 0.7633, Dice: 0.8627, F1: 0.8627, Precision: 0.9845, Recall: 0.7727
+2025-10-22 02:03:57,072 - INFO - Epoch 25 - Train Loss: 0.0596, IoU: 0.7368, Dice: 0.8460, F1: 0.8460, Precision: 0.9572, Recall: 0.7639
+2025-10-22 02:04:23,990 - INFO - Epoch 25 - Val Loss: 0.0584, IoU: 0.7630, Dice: 0.8623, F1: 0.8623, Precision: 0.9852, Recall: 0.7719
+2025-10-22 02:10:15,477 - INFO - Epoch 26 - Train Loss: 0.0586, IoU: 0.7343, Dice: 0.8442, F1: 0.8442, Precision: 0.9578, Recall: 0.7603
+2025-10-22 02:10:42,386 - INFO - Epoch 26 - Val Loss: 0.0593, IoU: 0.7274, Dice: 0.8384, F1: 0.8384, Precision: 0.9806, Recall: 0.7380
+2025-10-22 02:16:33,726 - INFO - Epoch 27 - Train Loss: 0.0545, IoU: 0.7264, Dice: 0.8388, F1: 0.8388, Precision: 0.9580, Recall: 0.7517
+2025-10-22 02:17:00,649 - INFO - Epoch 27 - Val Loss: 0.0562, IoU: 0.7563, Dice: 0.8582, F1: 0.8582, Precision: 0.9841, Recall: 0.7657
+2025-10-22 02:22:52,291 - INFO - Epoch 28 - Train Loss: 0.0533, IoU: 0.7267, Dice: 0.8389, F1: 0.8389, Precision: 0.9611, Recall: 0.7503
+2025-10-22 02:23:19,219 - INFO - Epoch 28 - Val Loss: 0.0567, IoU: 0.7259, Dice: 0.8374, F1: 0.8374, Precision: 0.9838, Recall: 0.7347
+2025-10-22 02:29:10,997 - INFO - Epoch 29 - Train Loss: 0.0504, IoU: 0.7336, Dice: 0.8437, F1: 0.8437, Precision: 0.9620, Recall: 0.7566
+2025-10-22 02:29:37,930 - INFO - Epoch 29 - Val Loss: 0.0556, IoU: 0.7509, Dice: 0.8544, F1: 0.8544, Precision: 0.9852, Recall: 0.7595
+2025-10-22 02:35:29,872 - INFO - Epoch 30 - Train Loss: 0.0498, IoU: 0.7325, Dice: 0.8428, F1: 0.8428, Precision: 0.9614, Recall: 0.7562
+2025-10-22 02:35:56,798 - INFO - Epoch 30 - Val Loss: 0.0566, IoU: 0.7489, Dice: 0.8530, F1: 0.8530, Precision: 0.9868, Recall: 0.7565
+2025-10-22 02:35:56,799 - INFO - 🎉 Entrenamiento completado!
+2025-10-22 02:35:56,799 - INFO - 
+📊 Métricas de Eficiencia del Modelo:
+2025-10-22 02:35:59,126 - INFO -   • Parámetros totales: 450.76M (450,762,867)
+2025-10-22 02:35:59,126 - INFO -   • Parámetros entrenables: 450.76M (450,762,867)
+2025-10-22 02:35:59,126 - INFO -   • FPS (Frames por segundo): 26.56
+2025-10-22 02:35:59,126 - INFO -   • Tiempo promedio por imagen: 37.65 ± 0.08 ms
+2025-10-22 02:35:59,126 - INFO -   • Memoria GPU pico: 7508.77 MB
+2025-10-22 02:35:59,126 - INFO -   • Memoria GPU asignada: 6894.52 MB
