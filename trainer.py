@@ -692,12 +692,16 @@ def train_segmentation(config=None):
 # ============================================================================
 
 if __name__ == "__main__":
-    # Verificar si se ejecuta con torchrun
+    # Verificar modo de ejecución
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
-        # Ejecutar entrenamiento distribuido
+        # Modo 1: Ejecutar con torchrun (multi-GPU distribuido)
+        train_segmentation()
+    elif 'TRAIN_CONFIG_PATH' in os.environ:
+        # Modo 2: Ejecutar en single-GPU con configuración desde main.py
+        print("🎯 Modo single-GPU: Cargando configuración desde main.py...")
         train_segmentation()
     else:
-        # Prueba del módulo
+        # Modo 3: Prueba del módulo (ejecución manual sin configuración)
         print("=== PRUEBA DEL MÓDULO DE ENTRENAMIENTO ===")
         print("⚠️  Para entrenamiento distribuido usa: torchrun --nproc_per_node=N trainer.py")
 
