@@ -1,0 +1,98 @@
+# Configuración OPTIMIZADA PARA BAJA MEMORIA
+# Dataset: ~3,400 imágenes (10% de 34,425)
+# Batch size reducido para GPUs con poca memoria disponible
+# Uso: python main.py train --config aisegment_10pct_lowmem --single-gpu
+
+experiment:
+  name: "AISegment 10% - Low Memory (Batch 4)"
+  description: "Entrenamiento con 10% del AISegment Dataset - Optimizado para baja memoria"
+  mode: "debug"
+
+model:
+  architecture: "resnet50"
+  image_size: 384
+  use_pretrained: true
+  use_attention: true
+
+dataset:
+  type: "aisegment"
+  root: "datasets/AISegment"
+
+  # Descarga automática con kagglehub
+  auto_download: true
+  kaggle_dataset_id: "laurentmih/aisegmentcom-matting-human-datasets"
+
+  # Split train/val
+  train_val_split: 0.8
+
+  # Usar 10% del dataset (~3,400 imágenes)
+  sampling:
+    enabled: true
+    mode: "percentage"
+    percentage: 0.1      # 10% del dataset
+    strategy: "random"
+    random_seed: 42
+
+training:
+  num_epochs: 30       # Reducido de 50 (suficiente para 10%)
+  batch_size: 4        # ⚠️ REDUCIDO de 16 a 4 (ahorra ~12GB memoria)
+  learning_rate: 0.0001
+  weight_decay: 0.000001
+  num_workers: 2       # ⚠️ REDUCIDO de 8 a 2 (menos overhead)
+  pin_memory: true
+  drop_last: true
+  gradient_clip_max_norm: 0.5
+  mixed_precision: true  # ✅ Mantener (ayuda con memoria)
+
+  scheduler:
+    type: "cosine_annealing"
+    T_0: 5             # Ajustado para menos epochs
+    T_mult: 2
+
+  loss_weights:
+    alpha: 1.0
+    beta: 1.0
+    gamma: 0.5
+    delta: 0.3
+
+validation:
+  frequency: 1
+  early_stopping:
+    enabled: true
+    patience: 8        # Reducido de 10
+    min_delta: 0.0001
+  target_metrics:
+    iou: 0.83
+    dice: 0.88
+    pixel_accuracy: 0.93
+
+checkpoints:
+  save_best: true
+  save_last: true
+  save_every_n_epochs: 5
+  checkpoint_dir: "checkpoints/aisegment_10pct_lowmem"
+
+logging:
+  log_every_n_batches: 20  # Reducido logging (menos overhead)
+  save_plots: true
+
+augmentation:
+  train:
+    # Augmentaciones simplificadas para reducir overhead
+    horizontal_flip: 0.5
+    random_rotate90: 0.2    # Reducida de 0.3
+    shift_scale_rotate:
+      enabled: true
+      shift_limit: 0.1
+      scale_limit: 0.2
+      rotate_limit: 15
+      p: 0.3               # Reducida de 0.5
+    brightness_contrast:
+      enabled: true
+      brightness_limit: 0.2
+      contrast_limit: 0.2
+      p: 0.3               # Reducida de 0.5
+    hue_saturation_value:
+      enabled: false        # ⚠️ DESACTIVADA para ahorrar memoria
+    gaussian_blur:
+      enabled: false        # ⚠️ DESACTIVADA para ahorrar memoria
