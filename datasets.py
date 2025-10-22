@@ -526,6 +526,15 @@ class AISegmentDataset(Dataset):
 
         # Verificar nuevamente si existe
         if not os.path.exists(os.path.join(self.root, 'clip_img')):
+            # Antes de fallar, intentar buscar en cache de kagglehub
+            # (Útil para otros ranks en DDP que esperan que rank0 descargue)
+            cache_path = self._try_find_in_kaggle_cache(kaggle_dataset_id)
+            if cache_path:
+                self.root = cache_path
+                print(f"✅ Dataset encontrado en cache de Kaggle: {self.root}")
+                return
+
+            # Si nada funciona, lanzar error
             raise FileNotFoundError(
                 f"Dataset AISegment no encontrado en {self.root}\n"
                 f"Opciones:\n"
@@ -533,6 +542,41 @@ class AISegmentDataset(Dataset):
                 f"2. Instalar kagglehub y configurar API key de Kaggle\n"
                 f"3. Especificar otro path en la configuración YAML"
             )
+
+    def _try_find_in_kaggle_cache(self, kaggle_dataset_id):
+        """
+        Busca el dataset en la cache de kagglehub sin descargar.
+        Útil para otros ranks en DDP que esperan que rank0 descargue.
+
+        Args:
+            kaggle_dataset_id: ID del dataset en formato "owner/dataset-name"
+
+        Returns:
+            Path al dataset en cache si existe, None si no se encuentra
+        """
+        if not kaggle_dataset_id:
+            return None
+
+        try:
+            cache_base = os.path.expanduser('~/.cache/kagglehub/datasets')
+            # Convertir "laurentmih/aisegmentcom-matting-human-datasets" a path
+            # ~/.cache/kagglehub/datasets/laurentmih/aisegmentcom-matting-human-datasets/versions/1
+            parts = kaggle_dataset_id.split('/')
+            if len(parts) == 2:
+                # Buscar en versiones (normalmente versión 1 es la más reciente)
+                dataset_cache = os.path.join(cache_base, parts[0], parts[1], 'versions')
+                if os.path.exists(dataset_cache):
+                    # Buscar la versión más reciente
+                    versions = sorted([d for d in os.listdir(dataset_cache) if d.isdigit()], reverse=True)
+                    for version in versions:
+                        cache_path = os.path.join(dataset_cache, version)
+                        if os.path.exists(os.path.join(cache_path, 'clip_img')):
+                            return cache_path
+        except Exception as e:
+            # Silenciar errores, simplemente retornar None
+            pass
+
+        return None
 
     def _parse_dataset_structure(self):
         """

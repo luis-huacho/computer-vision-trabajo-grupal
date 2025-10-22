@@ -551,15 +551,22 @@ def train_segmentation(config=None):
             if rank == 0:
                 logger.info(f"📊 Cargando AISegment Matting Human Dataset...")
 
+            # Solo rank0 descarga (evita timeouts en DDP)
+            auto_download_flag = config.get('auto_download', True) and (rank == 0)
+
             train_dataset = AISegmentDataset(
                 root=config.get('dataset_root', 'datasets/AISegment'),
                 split='train',
                 transforms=get_transforms(train=True, size=config['image_size']),
-                auto_download=config.get('auto_download', True),
+                auto_download=auto_download_flag,  # Solo rank0
                 kaggle_dataset_id=config.get('kaggle_dataset_id', 'laurentmih/aisegmentcom-matting-human-datasets'),
                 train_val_split=config.get('train_val_split', 0.8),
                 random_seed=config.get('random_seed', 42)
             )
+
+            # Sincronizar: esperar que rank0 termine de descargar/detectar
+            if is_distributed:
+                dist.barrier()
 
             # Usar el path real del train_dataset (después de descarga automática)
             actual_dataset_root = train_dataset.root
