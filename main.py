@@ -82,13 +82,15 @@ def print_system_status():
 # FUNCIONES DE EJECUCIÓN
 # ============================================================================
 
-def train_segmentation(config_path=None, config_name=None):
+def train_segmentation(config_path=None, config_name=None, single_gpu=False, gpu_id=0):
     """
-    Ejecuta el entrenamiento de segmentación usando multi-GPU si está disponible.
+    Ejecuta el entrenamiento de segmentación usando multi-GPU o single-GPU.
 
     Args:
         config_path: Path completo a archivo de configuración YAML
         config_name: Nombre de configuración en carpeta configs/
+        single_gpu: Si True, usa single-GPU sin DDP (default: False)
+        gpu_id: ID de GPU a usar en modo single-gpu (default: 0)
     """
     try:
         import torch
@@ -97,7 +99,10 @@ def train_segmentation(config_path=None, config_name=None):
         import json
         import tempfile
 
-        print("🔄 ENTRENAMIENTO DE SEGMENTACIÓN (MULTI-GPU)")
+        if single_gpu:
+            print(f"🔄 ENTRENAMIENTO DE SEGMENTACIÓN (SINGLE-GPU: GPU {gpu_id})")
+        else:
+            print("🔄 ENTRENAMIENTO DE SEGMENTACIÓN (MULTI-GPU)")
         print("=" * 40)
 
         # Cargar configuración desde YAML
@@ -166,7 +171,47 @@ def train_segmentation(config_path=None, config_name=None):
                           "DistributedDataParallel" in trainer_content and
                           "RANK" in trainer_content)
 
-        if has_ddp_support and gpu_count >= 1:
+        # Modo Single-GPU (sin DDP)
+        if single_gpu:
+            print(f"🎯 Modo single-GPU activado: Usando GPU {gpu_id}")
+            print(f"💡 Para usar multi-GPU, ejecuta sin --single-gpu")
+
+            # Preparar variables de entorno
+            env_vars = os.environ.copy()
+            env_vars['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+
+            # Guardar config si existe
+            if config:
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                    json.dump(config, f)
+                    temp_config_path = f.name
+                env_vars['TRAIN_CONFIG_PATH'] = temp_config_path
+                print(f"📄 Configuración guardada en: {temp_config_path}")
+
+            # Comando directo con python (NO torchrun)
+            cmd = ["python", "trainer.py"]
+
+            print(f"💻 Ejecutando comando: CUDA_VISIBLE_DEVICES={gpu_id} {' '.join(cmd)}")
+            print("⏳ Iniciando entrenamiento en single-GPU...")
+            print("-" * 40)
+
+            # Ejecutar python directamente
+            result = subprocess.run(cmd, capture_output=False, text=True, env=env_vars)
+
+            # Limpiar archivo temporal
+            if config and 'temp_config_path' in locals():
+                try:
+                    os.unlink(temp_config_path)
+                except:
+                    pass
+
+            print("-" * 40)
+            if result.returncode == 0:
+                print("✅ Entrenamiento completado exitosamente!")
+            else:
+                print(f"❌ Error en el entrenamiento. Código de salida: {result.returncode}")
+
+        elif has_ddp_support and gpu_count >= 1:
             # Usar entrenamiento distribuido
             if gpu_count < 2:
                 print("⚠️  Solo se detectó 1 GPU. Usando entrenamiento distribuido con 1 GPU...")
@@ -523,6 +568,8 @@ def show_help():
     print("  python main.py train                        # Entrenar segmentación (usa default.yaml)")
     print("  python main.py train --config resnet50_full # Entrenar con config específico")
     print("  python main.py train --config-path path/to/config.yaml  # Config personalizado")
+    print("  python main.py train --single-gpu           # Entrenar en single-GPU (GPU 0)")
+    print("  python main.py train --single-gpu --gpu-id 1  # Entrenar en single-GPU (GPU 1)")
     print("  python main.py harmonization                # Entrenar harmonización directamente")
     print("  python main.py demo                         # Ejecutar demo")
     print("  python main.py setup                        # Configurar datasets")
@@ -599,6 +646,17 @@ def main():
                 default=None,
                 help='Path completo al archivo de configuración YAML'
             )
+            parser.add_argument(
+                '--single-gpu',
+                action='store_true',
+                help='Entrenar en single-GPU (evita usar torchrun y DDP)'
+            )
+            parser.add_argument(
+                '--gpu-id',
+                type=int,
+                default=0,
+                help='ID de la GPU a usar en modo single-gpu (default: 0)'
+            )
 
             # Parsear solo los argumentos después de 'train'
             args = parser.parse_args(sys.argv[2:])
@@ -606,7 +664,9 @@ def main():
             # Ejecutar entrenamiento con configuración
             train_segmentation(
                 config_path=args.config_path,
-                config_name=args.config
+                config_name=args.config,
+                single_gpu=args.single_gpu,
+                gpu_id=args.gpu_id
             )
             return
 
