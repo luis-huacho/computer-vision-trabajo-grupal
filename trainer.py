@@ -221,7 +221,8 @@ class Trainer:
 
                 # Calcular pérdidas
                 if self.loss_calculator:
-                    loss = self.loss_calculator.calculate_loss(outputs, targets)
+                    loss_dict = self.loss_calculator.calculate_loss(outputs, targets)
+                    loss = loss_dict['total_loss']
                 else:
                     # Fallback a BCE simple
                     loss = torch.nn.functional.binary_cross_entropy(outputs, targets)
@@ -296,7 +297,8 @@ class Trainer:
                 outputs = self.model(images)
 
                 if self.loss_calculator:
-                    loss = self.loss_calculator.calculate_loss(outputs, targets)
+                    loss_dict = self.loss_calculator.calculate_loss(outputs, targets)
+                    loss = loss_dict['total_loss']
                     val_losses.append(loss.item())
 
                 if self.metrics_calculator:
