@@ -1,0 +1,130 @@
+# Configuración OPTIMIZADA para 20% del AISegment Dataset
+# Dataset: ~6,800 imágenes (20% de 34,425)
+# Optimizado para GPU con 8GB+ VRAM libre
+# Uso: python main.py train --config aisegment_20pct_optimized
+#
+# MEJORAS vs aisegment_10pct_lowmem:
+# - Batch size 8 (mejor estadísticas de Batch Norm)
+# - Augmentaciones reactivadas (hue/sat y blur)
+# - Loss weights optimizados para mejorar Recall
+# - 50 epochs con early stopping patience 12
+# - Learning rate ligeramente más agresivo
+#
+# Objetivo: IoU 82-85% (vs 77.8% del 10% lowmem)
+
+experiment:
+  name: "AISegment 20% - Optimized (Batch 8)"
+  description: "Entrenamiento con 20% del AISegment Dataset - Optimizado para IoU máximo"
+  mode: "production"
+
+model:
+  architecture: "resnet50"
+  image_size: 384
+  use_pretrained: true
+  use_attention: true
+
+dataset:
+  type: "aisegment"
+  root: "datasets/AISegment"
+
+  # Descarga automática con kagglehub
+  auto_download: true
+  kaggle_dataset_id: "laurentmih/aisegmentcom-matting-human-datasets"
+
+  # Split train/val
+  train_val_split: 0.8
+
+  # Usar 20% del dataset (~6,800 imágenes)
+  sampling:
+    enabled: true
+    mode: "percentage"
+    percentage: 0.2      # 20% del dataset
+    strategy: "random"
+    random_seed: 42
+
+training:
+  num_epochs: 50       # ⬆️ Aumentado de 40 (más tiempo para converger)
+  batch_size: 8        # ⬆️ DUPLICADO de 4 a 8 (mejor Batch Norm stats)
+  learning_rate: 0.00012  # ⬆️ Ligeramente más agresivo (de 0.0001)
+  weight_decay: 0.000001
+  num_workers: 4       # ⬆️ Aumentado de 2 a 4 (mejor I/O)
+  pin_memory: true
+  drop_last: true
+  gradient_clip_max_norm: 0.5
+  mixed_precision: true  # ✅ Mantener (ayuda con memoria)
+
+  scheduler:
+    type: "cosine_annealing"
+    T_0: 10            # ⬆️ Aumentado de 7 (ciclos más largos)
+    T_mult: 2
+    eta_min: 0.00001   # LR mínimo para fine-tuning
+
+  # 🎯 LOSS WEIGHTS OPTIMIZADOS PARA MEJORAR RECALL
+  loss_weights:
+    alpha: 0.8         # ⬇️ Reducido de 1.0 (BCE menos dominante)
+    beta: 1.2          # ⬆️ Aumentado de 1.0 (Dice más importante - mejora overlap)
+    gamma: 0.6         # ⬆️ Aumentado de 0.5 (Perceptual - calidad visual)
+    delta: 0.4         # ⬆️ Aumentado de 0.3 (Edge - bordes precisos)
+
+validation:
+  frequency: 1
+  early_stopping:
+    enabled: true
+    patience: 12       # ⬆️ Aumentado de 10 (más paciencia con más datos)
+    min_delta: 0.0001
+  target_metrics:
+    iou: 0.85          # ⬆️ Target más alto (de 0.83)
+    dice: 0.90         # ⬆️ Target más alto (de 0.88)
+    pixel_accuracy: 0.95  # ⬆️ Target más alto (de 0.93)
+
+checkpoints:
+  save_best: true
+  save_last: true
+  save_every_n_epochs: 5
+  checkpoint_dir: "checkpoints/aisegment_20pct_optimized"
+
+logging:
+  log_every_n_batches: 15  # ⬇️ Reducido de 20 (más info durante entrenamiento)
+  save_plots: true
+
+# 🎨 AUGMENTACIONES MEJORADAS (Estrategia Balanceada)
+augmentation:
+  train:
+    # Augmentaciones geométricas básicas
+    horizontal_flip: 0.5
+    random_rotate90: 0.3    # ⬆️ Aumentado de 0.2
+
+    shift_scale_rotate:
+      enabled: true
+      shift_limit: 0.1
+      scale_limit: 0.2
+      rotate_limit: 15
+      p: 0.4               # ⬆️ Aumentado de 0.3
+
+    # Augmentaciones de color
+    brightness_contrast:
+      enabled: true
+      brightness_limit: 0.2
+      contrast_limit: 0.2
+      p: 0.4               # ⬆️ Aumentado de 0.3
+
+    # 🔄 REACTIVADAS con probabilidad controlada
+    hue_saturation_value:
+      enabled: true        # ✅ REACTIVADA (era false)
+      hue_shift_limit: 10
+      sat_shift_limit: 15
+      val_shift_limit: 10
+      p: 0.2               # Probabilidad conservadora
+
+    gaussian_blur:
+      enabled: true        # ✅ REACTIVADA (era false)
+      blur_limit: [3, 5]   # Blur sutil
+      p: 0.15              # Probabilidad baja
+
+# 📊 MEJORAS ESPERADAS:
+# - IoU actual (10% lowmem): 77.8%
+# - IoU esperado (20% optimized): 82-85%
+#   * +3-4% por duplicar datos (20% vs 10%)
+#   * +1-2% por augmentaciones mejoradas
+#   * +1-2% por loss weights optimizados (mejor recall)
+#   * +0.5-1% por batch size mayor (mejor Batch Norm)
