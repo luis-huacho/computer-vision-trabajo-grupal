@@ -675,12 +675,12 @@ class AISegmentDataset(Dataset):
 
     def __getitem__(self, idx):
         """
-        Retorna imagen y máscara en formato RGBA (compatible con COCO).
+        Retorna imagen RGB y target RGBA (compatible con modelo de segmentación).
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]:
-                - image_rgba: Tensor de 4 canales (RGB + Alpha) [4, H, W]
-                - target_rgba: Mismo que image_rgba para compatibilidad
+                - image: Tensor de 3 canales RGB [3, H, W] (input del modelo)
+                - target_rgba: Tensor de 4 canales RGBA [4, H, W] (output esperado)
         """
         sample = self.samples[idx]
 
@@ -719,9 +719,10 @@ class AISegmentDataset(Dataset):
         # Concatenar RGB + Alpha → RGBA [4, H, W]
         image_rgba = torch.cat([image, alpha], dim=0)
 
-        # Retornar (image_rgba, image_rgba) para compatibilidad con COCO
-        # El target es la propia imagen con canal alpha
-        return image_rgba, image_rgba
+        # Retornar (image, image_rgba) para compatibilidad con modelo
+        # Input: RGB de 3 canales (esperado por ResNet-50)
+        # Target: RGBA de 4 canales (salida del modelo)
+        return image, image_rgba
 
 
 # ============================================================================
