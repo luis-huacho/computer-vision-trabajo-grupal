@@ -561,8 +561,11 @@ def train_segmentation(config=None):
                 random_seed=config.get('random_seed', 42)
             )
 
+            # Usar el path real del train_dataset (después de descarga automática)
+            actual_dataset_root = train_dataset.root
+
             val_dataset = AISegmentDataset(
-                root=config.get('dataset_root', 'datasets/AISegment'),
+                root=actual_dataset_root,  # Usar el path real después de descarga
                 split='val',
                 transforms=get_transforms(train=False, size=config['image_size']),
                 auto_download=False,  # Ya descargado en train
