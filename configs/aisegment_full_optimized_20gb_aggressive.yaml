@@ -1,0 +1,224 @@
+# Configuración OPTIMIZADA para 100% AISegment Dataset - 20GB VRAM (AGRESIVO)
+# Dataset: 34,425 imágenes completas
+# Hardware: GPU con 20GB VRAM (RTX 3090, RTX 4090, A5000, V100 32GB, A100)
+# Uso: python main.py train --config aisegment_full_optimized_20gb_aggressive
+#
+# ESTRATEGIA: AGRESIVO (Linear batch scaling)
+# - Batch size 24 (duplicado de 12)
+# - Learning rate 0.0003 (escalado lineal 2x para convergencia rápida)
+# - Warmup 5 epochs (necesario para estabilizar LR alto)
+# - Ciclos más cortos en scheduler
+# - Convergencia 15-20% más rápida que versión conservadora
+#
+# VENTAJAS vs conservador:
+# - Converge más rápido (~15-20% menos epochs)
+# - Tiempo: ~12-15 horas (vs 15-18h conservador)
+# - Explora loss landscape más agresivamente
+#
+# RIESGOS:
+# ⚠️ Puede saltar mínimos óptimos si LR muy alto
+# ⚠️ Requiere monitoreo más atento
+# ⚠️ Puede degradar calidad de bordes si no converge bien
+#
+# Objetivo: IoU 88-90% en menos tiempo
+
+experiment:
+  name: "AISegment 100% - 20GB VRAM Optimized (Agresivo)"
+  description: "Entrenamiento rápido - Batch 24, LR escalado lineal, Warmup"
+  mode: "production"
+
+model:
+  architecture: "resnet50"
+  image_size: 384
+  use_pretrained: true
+  use_attention: true
+
+dataset:
+  type: "aisegment"
+  root: "datasets/AISegment"
+
+  # Descarga automática con kagglehub
+  auto_download: true
+  kaggle_dataset_id: "laurentmih/aisegmentcom-matting-human-datasets"
+
+  # Split train/val (80/20)
+  train_val_split: 0.8
+
+  # Dataset completo (sin sampling)
+  sampling:
+    enabled: false
+    mode: "full"
+
+training:
+  num_epochs: 100      # Mismo (puede terminar antes por early stopping)
+  batch_size: 24       # 🔥 DUPLICADO de 12 (aprovecha 20GB VRAM)
+  learning_rate: 0.0003   # 🚀 AGRESIVO: Escalado lineal 2x (0.00015 × 2)
+  weight_decay: 0.0000003  # ⬇️ Reducido (batch grande regulariza implícitamente)
+  num_workers: 10      # Optimizado para I/O
+  pin_memory: true
+  drop_last: true
+  gradient_clip_max_norm: 0.5
+  mixed_precision: true  # ✅ Esencial
+
+  # 🆕 WARMUP para estabilizar LR alto
+  warmup:
+    enabled: true
+    warmup_epochs: 5     # Warmup lineal de 0 → 0.0003 en 5 epochs
+    warmup_start_lr: 0.00005  # LR inicial bajo
+
+  scheduler:
+    type: "cosine_annealing"
+    T_0: 10            # ⬇️ Ciclos MÁS CORTOS (de 12) para convergencia rápida
+    T_mult: 2
+    eta_min: 0.000005  # LR mínimo
+
+  # Loss weights optimizados para convergencia rápida
+  loss_weights:
+    alpha: 0.65        # ⬇️ BCE menos dominante (permite exploración rápida)
+    beta: 1.35         # ⬆️ Dice más importante (foco en overlap)
+    gamma: 0.75        # ⬆️ Perceptual alto (calidad visual)
+    delta: 0.55        # ⬆️ Edge importante (bordes precisos)
+
+validation:
+  frequency: 1
+  early_stopping:
+    enabled: true
+    patience: 15       # ⬇️ REDUCIDO de 20 (termina antes si plateau)
+    min_delta: 0.00008 # ⬆️ Delta más grande (menos sensible a ruido)
+  target_metrics:
+    iou: 0.88          # Target SOTA (mismo)
+    dice: 0.92
+    pixel_accuracy: 0.96
+
+checkpoints:
+  save_best: true
+  save_last: true
+  save_every_n_epochs: 8  # ⬇️ Menos frecuente (converge rápido)
+  checkpoint_dir: "checkpoints/aisegment_full_optimized_20gb_aggressive"
+
+logging:
+  log_every_n_batches: 15  # ⬇️ Más frecuente (monitoreo importante con LR alto)
+  save_plots: true
+
+# Augmentaciones agresivas (sin cambios - ya optimizadas)
+augmentation:
+  train:
+    horizontal_flip: 0.5
+    random_rotate90: 0.4
+
+    shift_scale_rotate:
+      enabled: true
+      shift_limit: 0.12
+      scale_limit: 0.25
+      rotate_limit: 20
+      p: 0.5
+
+    brightness_contrast:
+      enabled: true
+      brightness_limit: 0.25
+      contrast_limit: 0.25
+      p: 0.5
+
+    hue_saturation_value:
+      enabled: true
+      hue_shift_limit: 15
+      sat_shift_limit: 20
+      val_shift_limit: 15
+      p: 0.3
+
+    gaussian_blur:
+      enabled: true
+      blur_limit: [3, 7]
+      p: 0.2
+
+    random_gamma:
+      enabled: true
+      gamma_limit: [80, 120]
+      p: 0.3
+
+    gaussian_noise:
+      enabled: true
+      var_limit: [10.0, 30.0]
+      p: 0.2
+
+# 📊 MEJORAS ESPERADAS vs conservador:
+# - IoU esperado: 88-90% (mismo objetivo)
+# - Convergencia: 15-20% más rápida
+#   * Epochs necesarios: ~70-80 (vs 80-90 conservador)
+#   * Early stopping puede activarse epoch 60-70
+# - Tiempo total: 12-15 horas (vs 15-18h conservador)
+#
+# TIEMPO ESTIMADO DETALLADO:
+# - Convergencia esperada: epoch 60-75 (vs 70-85)
+# - Con RTX 3090/4090: ~8-10 min/epoch → ~12-15 horas
+# - Con A100: ~5-7 min/epoch → ~8-11 horas
+# - Con V100 32GB: ~10-12 min/epoch → ~15-18 horas
+#
+# REQUISITOS:
+# - VRAM: 18-20GB usado (mismo que conservador)
+# - RAM: 24GB+ recomendado
+# - Disco: ~15GB
+# - GPU: RTX 3090, RTX 4090, A5000, V100 32GB, A100, H100
+# - ⚠️ **Experiencia**: Recomendado tener experiencia monitoreando entrenamientos
+#
+# 🎯 MONITOREO CRÍTICO (MÁS IMPORTANTE QUE CONSERVADOR):
+#
+# ⚠️ **EPOCHS 1-5 (WARMUP)**:
+# - Loss debe BAJAR gradualmente (no saltos erráticos)
+# - Si loss diverge (NaN, Inf, >10): PARAR y reducir LR inicial
+# - IoU epoch 5 debería estar >0.60
+#
+# ⚠️ **EPOCHS 10-15 (POST-WARMUP)**:
+# - IoU debería estar >0.80 (vs 0.78 conservador)
+# - Si <0.75: LR muy alto, reducir a 0.00025
+# - Loss debe bajar suavemente, no oscilar
+#
+# ⚠️ **EPOCHS 30-40 (MID-TRAINING)**:
+# - IoU debería estar >0.85
+# - Validar calidad visual de bordes (no debe degradar)
+# - Si bordes borrosos: LR alto afectó calidad
+#
+# ⚠️ **EPOCHS 60-75 (CONVERGENCIA)**:
+# - IoU debería alcanzar >0.87
+# - Early stopping puede activarse
+# - Si no converge: patience muy bajo, extender a 18
+#
+# 🚨 SEÑALES DE PROBLEMA:
+# 1. **Loss diverge en warmup**: Reducir warmup_start_lr a 0.00003
+# 2. **Oscilaciones grandes**: Reducir LR a 0.00025
+# 3. **Bordes borrosos**: LR muy agresivo, volver a conservador
+# 4. **No mejora después epoch 40**: Aumentar patience a 18
+# 5. **Validation loss aumenta**: Overfitting, aumentar weight_decay
+#
+# 🎯 CUÁNDO USAR ESTA CONFIG:
+# ✅ Ya probaste config conservador y funcionó
+# ✅ Tienes experiencia monitoreando entrenamientos
+# ✅ Quieres resultados más rápido (12-15h vs 15-18h)
+# ✅ Puedes intervenir si hay problemas
+# ✅ Hardware estable (no va a interrumpirse)
+#
+# ❌ NO USAR SI:
+# ❌ Primera vez con este dataset
+# ❌ No puedes monitorear activamente
+# ❌ Hardware inestable (puede interrumpirse)
+# ❌ Prefieres seguridad sobre velocidad
+#
+# 🔄 SI ESTA CONFIG NO FUNCIONA:
+# 1. Reducir LR a 0.00025 (intermedio)
+# 2. Aumentar warmup a 7 epochs
+# 3. Volver a config conservador
+#
+# 📚 REFERENCIAS:
+# - "Accurate, Large Minibatch SGD" (Goyal et al., 2017)
+#   → Linear scaling funciona con warmup adecuado
+# - "Bag of Tricks for Image Classification" (He et al., 2018)
+#   → Warmup crítico para LR altos en vision tasks
+# - "Fast.ai lessons" (Howard & Gugger, 2020)
+#   → LR finder + aggressive training strategies
+#
+# 💡 TIP AVANZADO:
+# Si tienes tiempo, hacer "LR range test" primero:
+# 1. Entrenar 1 epoch con LR creciente (0.0001 → 0.001)
+# 2. Graficar loss vs LR
+# 3. Elegir LR justo antes de divergencia
+# 4. Esto puede revelar LR óptimo específico para tu GPU/setup
